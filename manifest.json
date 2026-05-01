@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "TCG+ Vendor Locations",
+  "version": "0.1.0",
+  "description": "Shows vendor locations on TCGPlayer product pages, highlighting California and other western US states.",
+  "content_scripts": [
+    {
+      "matches": ["https://www.tcgplayer.com/product/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "host_permissions": [
+    "https://seller-stores-backend.tcgplayer.com/*"
+  ]
+}

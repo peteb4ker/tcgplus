@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifest.json parses
+        run: |
+          python3 -c "import json,sys; json.load(open('manifest.json')); print('manifest.json OK')"
+
+      - name: Lint extension with web-ext
+        run: npx --yes web-ext lint --source-dir=. --self-hosted
