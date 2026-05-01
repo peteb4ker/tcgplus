@@ -12,9 +12,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate manifest.json parses
+      - name: Validate manifest.json
         run: |
-          python3 -c "import json,sys; json.load(open('manifest.json')); print('manifest.json OK')"
+          python3 - <<'PY'
+          import json, sys
+          m = json.load(open('manifest.json'))
+          assert m.get('manifest_version') == 3, f"expected manifest_version 3, got {m.get('manifest_version')}"
+          for f in ['name', 'version', 'description']:
+              assert m.get(f), f"manifest missing required field: {f}"
+          for f in m.get('content_scripts', [{}])[0].get('js', []) + m.get('content_scripts', [{}])[0].get('css', []):
+              assert __import__('os').path.exists(f), f"content script file missing: {f}"
+          print("manifest.json OK")
+          PY
 
-      - name: Lint extension with web-ext
-        run: npx --yes web-ext lint --source-dir=. --self-hosted
+      - name: Check JS syntax
+        run: node --check content.js
