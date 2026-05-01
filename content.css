@@ -31,25 +31,30 @@
 }
 .tcgplus-panel-row-disabled:hover { background: transparent !important; }
 
-.tcgplus-panel-toggle {
+.tcgplus-panel-toggles {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  font-size: 12px;
-  color: #333;
-  cursor: pointer;
-  user-select: none;
-}
-.tcgplus-panel-toggle:first-of-type {
+  gap: 4px 10px;
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid #eee;
+  font-size: 12px;
+  color: #333;
 }
-.tcgplus-panel-toggle input { cursor: pointer; }
+.tcgplus-panel-toggles-label { font-weight: 600; }
+.tcgplus-panel-toggle-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+.tcgplus-panel-toggle-item input { cursor: pointer; margin: 0; }
 
-html.tcgplus-hide-breakdown      .product-details__breakdown      { display: none !important; }
+html.tcgplus-hide-breakdown       .product-details__breakdown       { display: none !important; }
 html.tcgplus-hide-recommendations .product-details__recommendations { display: none !important; }
+html.tcgplus-hide-footer          footer                            { display: none !important; }
 
 html.tcgplus-filter-ca    .listing-item:not([data-tcgplus-tier="ca"])    { display: none !important; }
 html.tcgplus-filter-west  .listing-item:not([data-tcgplus-tier="west"])  { display: none !important; }

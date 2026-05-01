@@ -55,8 +55,9 @@
   }
 
   const HIDE_TOGGLES = [
-    { id: 'breakdown', label: 'Hide price breakdown', storageKey: 'tcgplus.hideBreakdown', bodyClass: 'tcgplus-hide-breakdown' },
-    { id: 'recommendations', label: 'Hide recommendations', storageKey: 'tcgplus.hideRecommendations', bodyClass: 'tcgplus-hide-recommendations' },
+    { id: 'breakdown', label: 'breakdown', storageKey: 'tcgplus.hideBreakdown', bodyClass: 'tcgplus-hide-breakdown' },
+    { id: 'recommendations', label: 'recommendations', storageKey: 'tcgplus.hideRecommendations', bodyClass: 'tcgplus-hide-recommendations' },
+    { id: 'footer', label: 'footer', storageKey: 'tcgplus.hideFooter', bodyClass: 'tcgplus-hide-footer' },
   ];
   const hideState = {};
   for (const t of HIDE_TOGGLES) {
@@ -146,7 +147,7 @@
       panel = document.createElement('aside');
       panel.className = 'tcgplus-panel';
       panel.addEventListener('click', (e) => {
-        if (e.target.closest('.tcgplus-panel-toggle')) return;
+        if (e.target.closest('.tcgplus-panel-toggles')) return;
         const row = e.target.closest('.tcgplus-panel-row');
         if (!row || row.classList.contains('tcgplus-panel-row-disabled')) return;
         const tier = row.dataset.tier;
@@ -175,9 +176,10 @@
       return `<div class="tcgplus-panel-row tcgplus-row-${tier}${disabled}${active}" data-tier="${tier}">${label}: <b>${count}</b></div>`;
     }).join('');
     const togglesHtml = HIDE_TOGGLES.map((t) =>
-      `<label class="tcgplus-panel-toggle"><input type="checkbox" data-toggle-id="${t.id}"${hideState[t.id] ? ' checked' : ''}> ${t.label}</label>`
+      `<label class="tcgplus-panel-toggle-item"><input type="checkbox" data-toggle-id="${t.id}"${hideState[t.id] ? ' checked' : ''}>${t.label}</label>`
     ).join('');
-    panel.innerHTML = `<div class="tcgplus-panel-title">Vendor Locations</div>${rowsHtml}${togglesHtml}`;
+    const togglesGroup = `<div class="tcgplus-panel-toggles"><span class="tcgplus-panel-toggles-label">Hide:</span>${togglesHtml}</div>`;
+    panel.innerHTML = `<div class="tcgplus-panel-title">Vendor Locations</div>${rowsHtml}${togglesGroup}`;
   }
 
   function scan() {
