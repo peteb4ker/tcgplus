@@ -54,16 +54,24 @@
     } catch (_) {}
   }
 
-  const HIDE_BREAKDOWN_KEY = 'tcgplus.hideBreakdown';
-  let hideBreakdown = false;
-  try {
-    hideBreakdown = localStorage.getItem(HIDE_BREAKDOWN_KEY) === '1';
-  } catch (_) {}
-
-  function applyHideBreakdown() {
-    document.documentElement.classList.toggle('tcgplus-hide-breakdown', hideBreakdown);
+  const HIDE_TOGGLES = [
+    { id: 'breakdown', label: 'Hide price breakdown', storageKey: 'tcgplus.hideBreakdown', bodyClass: 'tcgplus-hide-breakdown' },
+    { id: 'recommendations', label: 'Hide recommendations', storageKey: 'tcgplus.hideRecommendations', bodyClass: 'tcgplus-hide-recommendations' },
+  ];
+  const hideState = {};
+  for (const t of HIDE_TOGGLES) {
+    try {
+      hideState[t.id] = localStorage.getItem(t.storageKey) === '1';
+    } catch (_) {
+      hideState[t.id] = false;
+    }
   }
-  applyHideBreakdown();
+
+  function applyHideToggles() {
+    const cl = document.documentElement.classList;
+    for (const t of HIDE_TOGGLES) cl.toggle(t.bodyClass, !!hideState[t.id]);
+  }
+  applyHideToggles();
 
   function computeStats() {
     const counts = { ca: 0, west: 0, other: 0 };
@@ -146,12 +154,15 @@
         applyFilter();
       });
       panel.addEventListener('change', (e) => {
-        if (e.target.id !== 'tcgplus-toggle-breakdown') return;
-        hideBreakdown = e.target.checked;
+        const toggleId = e.target.dataset.toggleId;
+        if (!toggleId) return;
+        const t = HIDE_TOGGLES.find((x) => x.id === toggleId);
+        if (!t) return;
+        hideState[toggleId] = e.target.checked;
         try {
-          localStorage.setItem(HIDE_BREAKDOWN_KEY, hideBreakdown ? '1' : '0');
+          localStorage.setItem(t.storageKey, e.target.checked ? '1' : '0');
         } catch (_) {}
-        applyHideBreakdown();
+        applyHideToggles();
       });
       document.body.appendChild(panel);
     }
@@ -163,8 +174,10 @@
       const active = isActive ? ' tcgplus-panel-row-active' : '';
       return `<div class="tcgplus-panel-row tcgplus-row-${tier}${disabled}${active}" data-tier="${tier}">${label}: <b>${count}</b></div>`;
     }).join('');
-    const toggleHtml = `<label class="tcgplus-panel-toggle"><input type="checkbox" id="tcgplus-toggle-breakdown"${hideBreakdown ? ' checked' : ''}> Hide price breakdown</label>`;
-    panel.innerHTML = `<div class="tcgplus-panel-title">Vendor Locations</div>${rowsHtml}${toggleHtml}`;
+    const togglesHtml = HIDE_TOGGLES.map((t) =>
+      `<label class="tcgplus-panel-toggle"><input type="checkbox" data-toggle-id="${t.id}"${hideState[t.id] ? ' checked' : ''}> ${t.label}</label>`
+    ).join('');
+    panel.innerHTML = `<div class="tcgplus-panel-title">Vendor Locations</div>${rowsHtml}${togglesHtml}`;
   }
 
   function scan() {
