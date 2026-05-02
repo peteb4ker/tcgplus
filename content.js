@@ -131,6 +131,22 @@
   }
   applyHideToggles();
 
+  const FORCE_NEAR_MINT_KEY = 'tcgplus.forceNearMint';
+  let forceNearMint = false;
+  try {
+    forceNearMint = localStorage.getItem(FORCE_NEAR_MINT_KEY) === '1';
+  } catch (_) {}
+
+  function enforceNearMint() {
+    if (!forceNearMint) return;
+    if (!/\/product\//.test(location.pathname)) return;
+    const url = new URL(location.href);
+    if (url.searchParams.get('Condition') === 'Near Mint') return;
+    url.searchParams.set('Condition', 'Near Mint');
+    location.replace(url.toString());
+  }
+  enforceNearMint();
+
   const FREE_SHIP_THRESHOLD = 5.00;
   const CART_SUMMARY_URL = (key) => `https://mpgateway.tcgplayer.com/v1/cart/${key}/summary?mpfev=5106`;
   const cartSellerSubtotal = new Map();
@@ -501,6 +517,12 @@
           <div class="tcgplus-settings-label">Hide on page</div>
           <div class="tcgplus-panel-toggles">${hidesHtml}</div>
         </div>
+        <div class="tcgplus-settings-field">
+          <div class="tcgplus-settings-label">Filters</div>
+          <div class="tcgplus-panel-toggles">
+            <label class="tcgplus-panel-toggle-item"><input type="checkbox" id="tcgplus-force-near-mint"${forceNearMint ? ' checked' : ''}>Always Near Mint</label>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -527,6 +549,14 @@
         if (t.id === 'tcgplus-home-select') {
           setHomeState(t.value);
           renderPanel();
+          return;
+        }
+        if (t.id === 'tcgplus-force-near-mint') {
+          forceNearMint = t.checked;
+          try {
+            localStorage.setItem(FORCE_NEAR_MINT_KEY, t.checked ? '1' : '0');
+          } catch (_) {}
+          enforceNearMint();
           return;
         }
         if (t.dataset.nearby) {

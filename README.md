@@ -37,6 +37,7 @@ The gear icon on the panel opens settings:
 - **Home state**: pick any US state. Default is California.
 - **Nearby states**: tick zero or more. The home state is auto-disabled so you can't pick it twice. Default is the western US set (OR, WA, NV, AZ, ID, UT, MT, WY, CO, NM, AK, HI).
 - **Hide on page**: checkboxes to hide TCGplayer's price-breakdown panel, recommendations carousel, and footer.
+- **Always Near Mint**: when on, any product page URL without `Condition=Near+Mint` is rewritten to include it before the listings render. Off by default.
 
 Settings are stored in `localStorage`. Changing the home or nearby states reclassifies listings on the spot without re-fetching anything.
 
