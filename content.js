@@ -131,6 +131,87 @@
   }
   applyHideToggles();
 
+  const MARKET_PRICE_SELECTOR = '.price-points__upper__price';
+  const LISTING_PRICE_SELECTORS = [
+    '.listing-item__listing-data__info__price',
+    '.listing-item__price',
+    '[data-testid="listing-price"]',
+  ];
+  let marketPrice = null;
+  let listingPriceWarned = false;
+
+  function parsePrice(text) {
+    if (!text) return null;
+    const m = text.replace(/,/g, '').match(/\$\s*(\d+(?:\.\d+)?)/);
+    if (!m) return null;
+    const v = parseFloat(m[1]);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  }
+
+  function findMarketPrice() {
+    if (marketPrice != null) return marketPrice;
+    const el = document.querySelector(MARKET_PRICE_SELECTOR);
+    const v = el && parsePrice(el.textContent);
+    if (v) marketPrice = v;
+    return marketPrice;
+  }
+
+  function findListingPriceEl(item) {
+    for (const sel of LISTING_PRICE_SELECTORS) {
+      const el = item.querySelector(sel);
+      if (el && parsePrice(el.textContent)) return el;
+    }
+    if (!listingPriceWarned) {
+      console.warn('[TCG+] could not find listing price element; share this DOM:', item.outerHTML.slice(0, 1500));
+      listingPriceWarned = true;
+    }
+    return null;
+  }
+
+  function chipColorForPct(pct) {
+    if (pct < 0) return { bg: '#1e7e1e', fg: '#fff' };
+    if (pct === 0) return { bg: '#888', fg: '#fff' };
+    if (pct >= 10) return { bg: '#c62828', fg: '#fff' };
+    const hue = 60 - (pct / 10) * 60;
+    const fg = pct < 4 ? '#222' : '#fff';
+    return { bg: `hsl(${hue}, 78%, 45%)`, fg };
+  }
+
+  function formatAbsDiff(diff) {
+    const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
+    return `${sign}$${Math.abs(diff).toFixed(2)}`;
+  }
+
+  function formatPctDiff(pct) {
+    const sign = pct > 0 ? '+' : '';
+    return `${sign}${pct.toFixed(1)}%`;
+  }
+
+  function addPriceChips(item, market) {
+    if (item.dataset.tcgplusChips === '1') return;
+    const priceEl = findListingPriceEl(item);
+    if (!priceEl) return;
+    const price = parsePrice(priceEl.textContent);
+    if (!price) return;
+
+    const diff = price - market;
+    const pct = (diff / market) * 100;
+    const colors = chipColorForPct(pct);
+    const wrap = document.createElement('span');
+    wrap.className = 'tcgplus-price-chips';
+    wrap.innerHTML = `<span class="tcgplus-price-chip" style="background:${colors.bg};color:${colors.fg};" title="vs market $${market.toFixed(2)}">${formatAbsDiff(diff)} (${formatPctDiff(pct)})</span>`;
+    priceEl.appendChild(wrap);
+    item.dataset.tcgplusChips = '1';
+  }
+
+  function backfillPriceChips() {
+    const market = findMarketPrice();
+    if (!market) return;
+    document.querySelectorAll('.listing-item[data-tcgplus="done"]:not([data-tcgplus-chips])').forEach((el) => {
+      addPriceChips(el, market);
+    });
+  }
+
   let panel;
   let settingsOpen = false;
 
@@ -209,6 +290,9 @@
     item.dataset.tcgplusState = stateCode;
     item.dataset.tcgplusTier = tier;
     item.dataset.tcgplus = 'done';
+
+    const market = findMarketPrice();
+    if (market) addPriceChips(item, market);
 
     renderPanel();
   }
@@ -310,6 +394,7 @@
     document.querySelectorAll('.listing-item:not([data-tcgplus])').forEach((el) => {
       annotate(el);
     });
+    backfillPriceChips();
     renderPanel();
   }
 
