@@ -131,11 +131,80 @@
   }
   applyHideToggles();
 
+  const FREE_SHIP_THRESHOLD = 5.00;
+  const CART_SUMMARY_URL = (key) => `https://mpgateway.tcgplayer.com/v1/cart/${key}/summary?mpfev=5106`;
+  const cartSellerSubtotal = new Map();
+  let cartSubtotal = 0;
+  let cartFetchPromise = null;
+
+  function getCartKey() {
+    const m = document.cookie.match(/StoreCart_PRODUCTION=CK=([a-f0-9]+)/);
+    return m ? m[1] : null;
+  }
+
+  async function refreshCart() {
+    const key = getCartKey();
+    if (!key) {
+      cartSubtotal = 0;
+      cartSellerSubtotal.clear();
+      renderCartBadge();
+      return;
+    }
+    if (cartFetchPromise) return cartFetchPromise;
+    cartFetchPromise = (async () => {
+      try {
+        const r = await fetch(CART_SUMMARY_URL(key), { credentials: 'include', headers: { Accept: 'application/json' } });
+        if (r.ok) {
+          const json = await r.json();
+          const cart = json && json.results && json.results[0];
+          cartSellerSubtotal.clear();
+          if (cart) {
+            for (const s of cart.sellers || []) {
+              if (s.sellerKey) cartSellerSubtotal.set(s.sellerKey, Number(s.productTotalCost) || 0);
+            }
+            cartSubtotal = Number(cart.itemSubtotal) || 0;
+          } else {
+            cartSubtotal = 0;
+          }
+        }
+      } catch (_) {}
+      renderCartBadge();
+      recomputeDealChips();
+      cartFetchPromise = null;
+    })();
+    return cartFetchPromise;
+  }
+
+  function renderCartBadge() {
+    const countEl = document.querySelector('.mp-header__content__cart-count');
+    if (!countEl) return;
+    let label = countEl.querySelector('.tcgplus-cart-subtotal');
+    if (!label) {
+      label = document.createElement('span');
+      label.className = 'tcgplus-cart-subtotal';
+      countEl.appendChild(label);
+    }
+    label.textContent = `$${cartSubtotal.toFixed(2)}`;
+  }
+
+  let cartCountObserver = null;
+  function watchCartCount() {
+    const countEl = document.querySelector('.mp-header__content__cart-count__chip');
+    if (!countEl || cartCountObserver) return;
+    cartCountObserver = new MutationObserver(() => refreshCart());
+    cartCountObserver.observe(countEl, { childList: true, characterData: true, subtree: true });
+  }
+
   const MARKET_PRICE_SELECTOR = '.price-points__upper__price';
   const LISTING_PRICE_SELECTORS = [
     '.listing-item__listing-data__info__price',
     '.listing-item__price',
     '[data-testid="listing-price"]',
+  ];
+  const LISTING_SHIPPING_SELECTORS = [
+    '.listing-item__listing-data__info__shipping',
+    '.listing-item__shipping',
+    '[data-testid="shipping"]',
   ];
   let marketPrice = null;
   let listingPriceWarned = false;
@@ -146,6 +215,41 @@
     if (!m) return null;
     const v = parseFloat(m[1]);
     return Number.isFinite(v) && v > 0 ? v : null;
+  }
+
+  function parseShippingCost(text) {
+    if (!text) return null;
+    const explicit = text.match(/\+?\s*\$\s*(\d+(?:\.\d+)?)\s*shipping/i);
+    if (explicit) {
+      const v = parseFloat(explicit[1]);
+      if (Number.isFinite(v) && v >= 0) return v;
+    }
+    if (/shipping:\s*included/i.test(text)) return 0;
+    if (/free\s+shipping/i.test(text) && !/orders?\s+over/i.test(text)) return 0;
+    return null;
+  }
+
+  function hasFreeShippingPromo(item) {
+    if (item.querySelector('.free-shipping-over-min')) return true;
+    return /free\s+shipping\s+on\s+orders?\s+over/i.test(item.textContent || '');
+  }
+
+  function findListingShipping(item) {
+    for (const sel of LISTING_SHIPPING_SELECTORS) {
+      const el = item.querySelector(sel);
+      if (!el) continue;
+      const cost = parseShippingCost(el.textContent);
+      if (cost != null) return { el, cost };
+    }
+    const candidates = item.querySelectorAll('span, div, p');
+    for (const el of candidates) {
+      if (el.children.length > 2) continue;
+      const text = (el.textContent || '').trim();
+      if (!/shipping/i.test(text)) continue;
+      const cost = parseShippingCost(text);
+      if (cost != null) return { el, cost };
+    }
+    return null;
   }
 
   function findMarketPrice() {
@@ -177,6 +281,12 @@
     return { bg: `hsl(${hue}, 78%, 45%)`, fg };
   }
 
+  function chipForShipping(cost) {
+    if (cost === 0) return { bg: '#1e7e1e', fg: '#fff', text: 'Shipping: Included' };
+    if (cost < 2) return { bg: '#cc8c19', fg: '#fff', text: `$${cost.toFixed(2)} shipping` };
+    return { bg: '#c62828', fg: '#fff', text: `$${cost.toFixed(2)} high shipping` };
+  }
+
   function formatAbsDiff(diff) {
     const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
     return `${sign}$${Math.abs(diff).toFixed(2)}`;
@@ -197,11 +307,71 @@
     const diff = price - market;
     const pct = (diff / market) * 100;
     const colors = chipColorForPct(pct);
+    const deltaChipHtml = `<span class="tcgplus-price-chip" style="background:${colors.bg};color:${colors.fg};" title="vs market $${market.toFixed(2)}">${formatAbsDiff(diff)} (${formatPctDiff(pct)})</span>`;
+
     const wrap = document.createElement('span');
     wrap.className = 'tcgplus-price-chips';
-    wrap.innerHTML = `<span class="tcgplus-price-chip" style="background:${colors.bg};color:${colors.fg};" title="vs market $${market.toFixed(2)}">${formatAbsDiff(diff)} (${formatPctDiff(pct)})</span>`;
-    priceEl.appendChild(wrap);
+
+    const shipping = findListingShipping(item);
+    if (shipping) {
+      const sc = chipForShipping(shipping.cost);
+      const shipChipHtml = `<span class="tcgplus-price-chip tcgplus-ship-chip" style="background:${sc.bg};color:${sc.fg};">${sc.text}</span>`;
+      const promoFree = hasFreeShippingPromo(item);
+      item.dataset.tcgplusPrice = String(price);
+      item.dataset.tcgplusShipping = String(shipping.cost);
+      item.dataset.tcgplusPromo = promoFree ? '1' : '0';
+      item.dataset.tcgplusMarket = String(market);
+      const dealChipHtml = renderDealChipHtml(item);
+      wrap.innerHTML = dealChipHtml + deltaChipHtml + shipChipHtml;
+      shipping.el.dataset.tcgplusOriginalText = shipping.el.textContent.trim();
+      shipping.el.innerHTML = '';
+      shipping.el.appendChild(wrap);
+    } else {
+      wrap.innerHTML = deltaChipHtml;
+      priceEl.appendChild(wrap);
+    }
+
     item.dataset.tcgplusChips = '1';
+  }
+
+  function renderDealChipHtml(item) {
+    const price = parseFloat(item.dataset.tcgplusPrice || '0');
+    const shipping = parseFloat(item.dataset.tcgplusShipping || '0');
+    const market = parseFloat(item.dataset.tcgplusMarket || '0');
+    const promoFree = item.dataset.tcgplusPromo === '1';
+    const sellerKey = item.dataset.tcgplusSellerKey || '';
+    if (!price || !market) return '';
+    const sellerCart = sellerKey ? (cartSellerSubtotal.get(sellerKey) || 0) : 0;
+    const promoQualifies = promoFree && (sellerCart + price) >= FREE_SHIP_THRESHOLD;
+    const effectiveShipping = promoQualifies ? 0 : shipping;
+    const total = price + effectiveShipping;
+    if (total >= market) return '';
+    const note = promoQualifies
+      ? `Total $${total.toFixed(2)} (free-shipping promo applies: $${sellerCart.toFixed(2)} already with this seller + $${price.toFixed(2)} clears the $${FREE_SHIP_THRESHOLD.toFixed(2)} threshold)`
+      : `Total $${total.toFixed(2)} is below market $${market.toFixed(2)}`;
+    return `<span class="tcgplus-price-chip tcgplus-deal-chip" title="${note}">Deal</span>`;
+  }
+
+  function recomputeDealChips() {
+    document.querySelectorAll('.listing-item[data-tcgplus-chips="1"]').forEach((item) => {
+      const wrap = item.querySelector('.tcgplus-price-chips');
+      if (!wrap) return;
+      const existing = wrap.querySelector('.tcgplus-deal-chip');
+      const html = renderDealChipHtml(item);
+      if (!html) {
+        if (existing) existing.remove();
+        return;
+      }
+      if (existing) {
+        const tmp = document.createElement('span');
+        tmp.innerHTML = html;
+        wrap.replaceChild(tmp.firstChild, existing);
+      } else {
+        const tmp = document.createElement('span');
+        tmp.innerHTML = html;
+        wrap.insertBefore(tmp.firstChild, wrap.firstChild);
+      }
+    });
   }
 
   function backfillPriceChips() {
@@ -271,6 +441,7 @@
       return;
     }
 
+    item.dataset.tcgplusSellerKey = key;
     const stateCode = stateCodeFromInfo(info);
     const tier = classifyState(stateCode);
     const text = formatLocation(info);
@@ -396,6 +567,8 @@
     });
     backfillPriceChips();
     renderPanel();
+    watchCartCount();
+    renderCartBadge();
   }
 
   let scanTimer = null;
@@ -409,5 +582,7 @@
   observer.observe(document.body, { childList: true, subtree: true });
 
   scan();
+  refreshCart();
+
   console.log('[TCG+] vendor location extension loaded');
 })();

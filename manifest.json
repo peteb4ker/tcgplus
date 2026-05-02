@@ -12,6 +12,7 @@
     }
   ],
   "host_permissions": [
-    "https://seller-stores-backend.tcgplayer.com/*"
+    "https://seller-stores-backend.tcgplayer.com/*",
+    "https://mpgateway.tcgplayer.com/*"
   ]
 }
