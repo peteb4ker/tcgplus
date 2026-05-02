@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "TCG+ Vendor Locations",
+  "name": "TCGPlus",
   "version": "0.1.0",
-  "description": "Shows vendor locations on TCGPlayer product pages, highlighting California and other western US states.",
+  "description": "Usability improvements for TCGplayer: vendor locations, market-price chips, click-to-filter by region, and configurable hide controls.",
   "content_scripts": [
     {
       "matches": ["https://www.tcgplayer.com/product/*"],
