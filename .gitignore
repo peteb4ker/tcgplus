@@ -4,3 +4,4 @@
 .vscode/
 dist/
 *.zip
+node_modules/

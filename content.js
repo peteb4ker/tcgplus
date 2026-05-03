@@ -3,29 +3,9 @@
 
   const SELLER_API = 'https://seller-stores-backend.tcgplayer.com/sm/seller/';
 
-  const STATES = [
-    ['AL', 'Alabama'], ['AK', 'Alaska'], ['AZ', 'Arizona'], ['AR', 'Arkansas'],
-    ['CA', 'California'], ['CO', 'Colorado'], ['CT', 'Connecticut'], ['DE', 'Delaware'],
-    ['DC', 'District of Columbia'], ['FL', 'Florida'], ['GA', 'Georgia'], ['HI', 'Hawaii'],
-    ['ID', 'Idaho'], ['IL', 'Illinois'], ['IN', 'Indiana'], ['IA', 'Iowa'],
-    ['KS', 'Kansas'], ['KY', 'Kentucky'], ['LA', 'Louisiana'], ['ME', 'Maine'],
-    ['MD', 'Maryland'], ['MA', 'Massachusetts'], ['MI', 'Michigan'], ['MN', 'Minnesota'],
-    ['MS', 'Mississippi'], ['MO', 'Missouri'], ['MT', 'Montana'], ['NE', 'Nebraska'],
-    ['NV', 'Nevada'], ['NH', 'New Hampshire'], ['NJ', 'New Jersey'], ['NM', 'New Mexico'],
-    ['NY', 'New York'], ['NC', 'North Carolina'], ['ND', 'North Dakota'], ['OH', 'Ohio'],
-    ['OK', 'Oklahoma'], ['OR', 'Oregon'], ['PA', 'Pennsylvania'], ['RI', 'Rhode Island'],
-    ['SC', 'South Carolina'], ['SD', 'South Dakota'], ['TN', 'Tennessee'], ['TX', 'Texas'],
-    ['UT', 'Utah'], ['VT', 'Vermont'], ['VA', 'Virginia'], ['WA', 'Washington'],
-    ['WV', 'West Virginia'], ['WI', 'Wisconsin'], ['WY', 'Wyoming'],
-  ];
-  const STATE_NAMES = Object.fromEntries(STATES);
-  const STATE_CODES = new Set(STATES.map(([c]) => c));
-
   const HOME_STATE_KEY = 'tcgplus.homeState';
   const NEARBY_STATES_KEY = 'tcgplus.nearbyStates';
   const ACTIVE_FILTER_KEY = 'tcgplus.activeFilter';
-  const DEFAULT_NEARBY = ['OR', 'WA', 'NV', 'AZ', 'ID', 'UT', 'MT', 'WY', 'CO', 'NM', 'AK', 'HI'];
-  const VALID_TIERS = new Set(['home', 'nearby', 'other']);
 
   let homeState = 'CA';
   let nearbyStates = new Set(DEFAULT_NEARBY);
@@ -53,31 +33,6 @@
       .catch(() => null);
     sellerCache.set(sellerKey, p);
     return p;
-  }
-
-  function extractKey(href) {
-    if (!href) return null;
-    const m = href.match(/\/sellers\/[^/]+\/([a-z0-9]+)/i);
-    return m ? m[1] : null;
-  }
-
-  function classifyState(stateCode) {
-    if (!stateCode) return 'intl';
-    if (stateCode === homeState) return 'home';
-    if (nearbyStates.has(stateCode)) return 'nearby';
-    return 'other';
-  }
-
-  function stateCodeFromInfo(info) {
-    return info.addressCountryCode === 'US' ? (info.addressTerritory || '') : '';
-  }
-
-  function formatLocation(info) {
-    const city = info.addressCity || '';
-    const state = info.addressTerritory || '';
-    const country = info.addressCountryCode || '';
-    if (country === 'US' && state) return city ? `${city}, ${state}` : state;
-    return info.location || country || 'Unknown';
   }
 
   function setActiveFilter(value) {
@@ -113,7 +68,12 @@
 
   const HIDE_TOGGLES = [
     { id: 'breakdown', label: 'breakdown', storageKey: 'tcgplus.hideBreakdown', bodyClass: 'tcgplus-hide-breakdown' },
-    { id: 'recommendations', label: 'recommendations', storageKey: 'tcgplus.hideRecommendations', bodyClass: 'tcgplus-hide-recommendations' },
+    {
+      id: 'recommendations',
+      label: 'recommendations',
+      storageKey: 'tcgplus.hideRecommendations',
+      bodyClass: 'tcgplus-hide-recommendations',
+    },
     { id: 'footer', label: 'footer', storageKey: 'tcgplus.hideFooter', bodyClass: 'tcgplus-hide-footer' },
   ];
   const hideState = {};
@@ -158,7 +118,6 @@
   }
   enforceNearMint();
 
-  const FREE_SHIP_THRESHOLD = 5.00;
   const CART_SUMMARY_URL = (key) => `https://mpgateway.tcgplayer.com/v1/cart/${key}/summary?mpfev=5106`;
   const cartSellerSubtotal = new Map();
   let cartSubtotal = 0;
@@ -180,7 +139,10 @@
     if (cartFetchPromise) return cartFetchPromise;
     cartFetchPromise = (async () => {
       try {
-        const r = await fetch(CART_SUMMARY_URL(key), { credentials: 'include', headers: { Accept: 'application/json' } });
+        const r = await fetch(CART_SUMMARY_URL(key), {
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
         if (r.ok) {
           const json = await r.json();
           const cart = json && json.results && json.results[0];
@@ -237,26 +199,6 @@
   let marketPrice = null;
   let listingPriceWarned = false;
 
-  function parsePrice(text) {
-    if (!text) return null;
-    const m = text.replace(/,/g, '').match(/\$\s*(\d+(?:\.\d+)?)/);
-    if (!m) return null;
-    const v = parseFloat(m[1]);
-    return Number.isFinite(v) && v > 0 ? v : null;
-  }
-
-  function parseShippingCost(text) {
-    if (!text) return null;
-    const explicit = text.match(/\+?\s*\$\s*(\d+(?:\.\d+)?)\s*shipping/i);
-    if (explicit) {
-      const v = parseFloat(explicit[1]);
-      if (Number.isFinite(v) && v >= 0) return v;
-    }
-    if (/shipping:\s*included/i.test(text)) return 0;
-    if (/free\s+shipping/i.test(text) && !/orders?\s+over/i.test(text)) return 0;
-    return null;
-  }
-
   function hasFreeShippingPromo(item) {
     if (item.querySelector('.free-shipping-over-min')) return true;
     return /free\s+shipping\s+on\s+orders?\s+over/i.test(item.textContent || '');
@@ -308,31 +250,6 @@
     return null;
   }
 
-  function chipColorForPct(pct) {
-    if (pct < 0) return { bg: '#1e7e1e', fg: '#fff' };
-    if (pct === 0) return { bg: '#888', fg: '#fff' };
-    if (pct >= 10) return { bg: '#c62828', fg: '#fff' };
-    const hue = 60 - (pct / 10) * 60;
-    const fg = pct < 4 ? '#222' : '#fff';
-    return { bg: `hsl(${hue}, 78%, 45%)`, fg };
-  }
-
-  function chipForShipping(cost) {
-    if (cost === 0) return { bg: '#1e7e1e', fg: '#fff', text: 'Shipping: Included' };
-    if (cost < 2) return { bg: '#cc8c19', fg: '#fff', text: `$${cost.toFixed(2)} shipping` };
-    return { bg: '#c62828', fg: '#fff', text: `$${cost.toFixed(2)} high shipping` };
-  }
-
-  function formatAbsDiff(diff) {
-    const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
-    return `${sign}$${Math.abs(diff).toFixed(2)}`;
-  }
-
-  function formatPctDiff(pct) {
-    const sign = pct > 0 ? '+' : '';
-    return `${sign}${pct.toFixed(1)}%`;
-  }
-
   function addPriceChips(item, market) {
     if (item.dataset.tcgplusChips === '1') return;
     const priceEl = findListingPriceEl(item);
@@ -377,8 +294,8 @@
     const promoFree = item.dataset.tcgplusPromo === '1';
     const sellerKey = item.dataset.tcgplusSellerKey || '';
     if (!price || !market) return '';
-    const sellerCart = sellerKey ? (cartSellerSubtotal.get(sellerKey) || 0) : 0;
-    const promoQualifies = promoFree && (sellerCart + price) >= FREE_SHIP_THRESHOLD;
+    const sellerCart = sellerKey ? cartSellerSubtotal.get(sellerKey) || 0 : 0;
+    const promoQualifies = promoFree && sellerCart + price >= FREE_SHIP_THRESHOLD;
     const effectiveShipping = promoQualifies ? 0 : shipping;
     const total = price + effectiveShipping;
     if (total >= market) return '';
@@ -444,7 +361,7 @@
   function reclassifyAll() {
     document.querySelectorAll('.listing-item[data-tcgplus="done"]').forEach((el) => {
       const stateCode = el.dataset.tcgplusState || '';
-      const tier = classifyState(stateCode);
+      const tier = classifyState(stateCode, homeState, nearbyStates);
       const oldTier = el.dataset.tcgplusTier;
       if (tier === oldTier) return;
       el.dataset.tcgplusTier = tier;
@@ -464,7 +381,7 @@
     item.dataset.tcgplus = 'pending';
 
     const link = item.querySelector('a.seller-info__name');
-    const key = link && extractKey(link.getAttribute('href'));
+    const key = link && extractSellerKey(link.getAttribute('href'));
     if (!key) {
       item.dataset.tcgplus = 'no-key';
       return;
@@ -478,7 +395,7 @@
 
     item.dataset.tcgplusSellerKey = key;
     const stateCode = stateCodeFromInfo(info);
-    const tier = classifyState(stateCode);
+    const tier = classifyState(stateCode, homeState, nearbyStates);
     const text = formatLocation(info);
 
     const row = document.createElement('div');
@@ -503,24 +420,21 @@
     renderPanel();
   }
 
-  function tierLabel(tier) {
-    if (tier === 'home') return STATE_NAMES[homeState] || homeState;
-    if (tier === 'nearby') return 'Nearby';
-    return 'Other US';
-  }
-
   function buildSettingsHtml() {
-    const homeOptions = STATES.map(([c, n]) =>
-      `<option value="${c}"${c === homeState ? ' selected' : ''}>${n}</option>`
+    const homeOptions = STATES.map(
+      ([c, n]) => `<option value="${c}"${c === homeState ? ' selected' : ''}>${n}</option>`
     ).join('');
     const nearbyBoxes = STATES.map(([c, n]) => {
       const isHome = c === homeState;
       const checked = !isHome && nearbyStates.has(c);
-      return `<label class="tcgplus-state-cell${isHome ? ' tcgplus-state-cell-disabled' : ''}" title="${n}">` +
-        `<input type="checkbox" data-nearby="${c}"${checked ? ' checked' : ''}${isHome ? ' disabled' : ''}>${c}</label>`;
+      return (
+        `<label class="tcgplus-state-cell${isHome ? ' tcgplus-state-cell-disabled' : ''}" title="${n}">` +
+        `<input type="checkbox" data-nearby="${c}"${checked ? ' checked' : ''}${isHome ? ' disabled' : ''}>${c}</label>`
+      );
     }).join('');
-    const hidesHtml = HIDE_TOGGLES.map((t) =>
-      `<label class="tcgplus-panel-toggle-item"><input type="checkbox" data-toggle-id="${t.id}"${hideState[t.id] ? ' checked' : ''}>${t.label}</label>`
+    const hidesHtml = HIDE_TOGGLES.map(
+      (t) =>
+        `<label class="tcgplus-panel-toggle-item"><input type="checkbox" data-toggle-id="${t.id}"${hideState[t.id] ? ' checked' : ''}>${t.label}</label>`
     ).join('');
     return `
       <div class="tcgplus-settings">
@@ -606,14 +520,16 @@
     }
     const counts = computeStats();
     const tiers = ['home', 'nearby', 'other'];
-    const rowsHtml = tiers.map((tier) => {
-      const count = counts[tier];
-      const isActive = activeFilter === tier;
-      const disabled = count === 0 && !isActive ? ' tcgplus-panel-row-disabled' : '';
-      const active = isActive ? ' tcgplus-panel-row-active' : '';
-      const label = tierLabel(tier);
-      return `<div class="tcgplus-panel-row tcgplus-row-${tier}${disabled}${active}" data-tier="${tier}">${label}: <b>${count}</b></div>`;
-    }).join('');
+    const rowsHtml = tiers
+      .map((tier) => {
+        const count = counts[tier];
+        const isActive = activeFilter === tier;
+        const disabled = count === 0 && !isActive ? ' tcgplus-panel-row-disabled' : '';
+        const active = isActive ? ' tcgplus-panel-row-active' : '';
+        const label = tierLabel(tier, homeState, STATE_NAMES);
+        return `<div class="tcgplus-panel-row tcgplus-row-${tier}${disabled}${active}" data-tier="${tier}">${label}: <b>${count}</b></div>`;
+      })
+      .join('');
     const gear = `<button type="button" class="tcgplus-settings-toggle" aria-label="Settings" aria-expanded="${settingsOpen}">⚙</button>`;
     const settingsHtml = settingsOpen ? buildSettingsHtml() : '';
     panel.innerHTML = `<div class="tcgplus-panel-title">Vendor Locations${gear}</div>${rowsHtml}${settingsHtml}`;
@@ -629,11 +545,6 @@
   }
 
   let scanTimer = null;
-  function isOurNode(n) {
-    if (!n || n.nodeType !== 1) return false;
-    const cn = typeof n.className === 'string' ? n.className : (n.className && n.className.baseVal) || '';
-    return cn.indexOf('tcgplus-') !== -1;
-  }
   const observer = new MutationObserver((mutations) => {
     if (scanTimer) return;
     const externalChange = mutations.some((m) => {
