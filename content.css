@@ -47,12 +47,26 @@
   color: #444;
   line-height: 1.3;
 }
-.tcgplus-loc.tcgplus-home   { background: #1e7e1e; color: #fff; }
-.tcgplus-loc.tcgplus-nearby { background: #f5d000; color: #222; }
-.tcgplus-loc.tcgplus-intl   { background: #cfd8dc; color: #555; }
+.tcgplus-loc.tcgplus-home {
+  background: #1e7e1e;
+  color: #fff;
+}
+.tcgplus-loc.tcgplus-nearby {
+  background: #f5d000;
+  color: #222;
+}
+.tcgplus-loc.tcgplus-intl {
+  background: #cfd8dc;
+  color: #555;
+}
 
-.tcgplus-panel-row[data-tier] { cursor: pointer; user-select: none; }
-.tcgplus-panel-row[data-tier]:hover { background: #f1f3f5; }
+.tcgplus-panel-row[data-tier] {
+  cursor: pointer;
+  user-select: none;
+}
+.tcgplus-panel-row[data-tier]:hover {
+  background: #f1f3f5;
+}
 .tcgplus-panel-row-active {
   background: #e3f0fc !important;
   outline: 1px solid #0a66c2;
@@ -61,7 +75,9 @@
   cursor: default !important;
   opacity: 0.45;
 }
-.tcgplus-panel-row-disabled:hover { background: transparent !important; }
+.tcgplus-panel-row-disabled:hover {
+  background: transparent !important;
+}
 
 .tcgplus-panel-toggles {
   display: flex;
@@ -78,19 +94,40 @@
   cursor: pointer;
   user-select: none;
 }
-.tcgplus-panel-toggle-item input { cursor: pointer; margin: 0; }
+.tcgplus-panel-toggle-item input {
+  cursor: pointer;
+  margin: 0;
+}
 
-html.tcgplus-hide-breakdown       .product-details__breakdown       { display: none !important; }
-html.tcgplus-hide-recommendations .product-details__recommendations { display: none !important; }
-html.tcgplus-hide-footer          footer                            { display: none !important; }
-html.tcgplus-hide-oos             .search-result:has(.mp-oos-badge) { display: none !important; }
+html.tcgplus-hide-breakdown .product-details__breakdown {
+  display: none !important;
+}
+html.tcgplus-hide-recommendations .product-details__recommendations {
+  display: none !important;
+}
+html.tcgplus-hide-footer footer {
+  display: none !important;
+}
+html.tcgplus-hide-oos .search-result:has(.mp-oos-badge) {
+  display: none !important;
+}
 
-html.tcgplus-filter-home   .listing-item:not([data-tcgplus-tier="home"])   { display: none !important; }
-html.tcgplus-filter-nearby .listing-item:not([data-tcgplus-tier="nearby"]) { display: none !important; }
-html.tcgplus-filter-other  .listing-item:not([data-tcgplus-tier="other"])  { display: none !important; }
+html.tcgplus-filter-home .listing-item:not([data-tcgplus-tier='home']) {
+  display: none !important;
+}
+html.tcgplus-filter-nearby .listing-item:not([data-tcgplus-tier='nearby']) {
+  display: none !important;
+}
+html.tcgplus-filter-other .listing-item:not([data-tcgplus-tier='other']) {
+  display: none !important;
+}
 
-.listing-item.tcgplus-row-home   { box-shadow: inset 4px 0 0 0 #1e7e1e; }
-.listing-item.tcgplus-row-nearby { box-shadow: inset 4px 0 0 0 #f5d000; }
+.listing-item.tcgplus-row-home {
+  box-shadow: inset 4px 0 0 0 #1e7e1e;
+}
+.listing-item.tcgplus-row-nearby {
+  box-shadow: inset 4px 0 0 0 #f5d000;
+}
 
 .tcgplus-panel {
   position: fixed;
@@ -122,9 +159,17 @@ html.tcgplus-filter-other  .listing-item:not([data-tcgplus-tier="other"])  { dis
   padding: 1px 4px;
   border-radius: 3px;
 }
-.tcgplus-panel-row.tcgplus-row-home   { color: #1e7e1e; font-weight: 600; }
-.tcgplus-panel-row.tcgplus-row-nearby { color: #a07a00; font-weight: 600; }
-.tcgplus-panel-row.tcgplus-row-other  { color: #555; }
+.tcgplus-panel-row.tcgplus-row-home {
+  color: #1e7e1e;
+  font-weight: 600;
+}
+.tcgplus-panel-row.tcgplus-row-nearby {
+  color: #a07a00;
+  font-weight: 600;
+}
+.tcgplus-panel-row.tcgplus-row-other {
+  color: #555;
+}
 
 .tcgplus-settings-toggle {
   background: transparent;
@@ -136,8 +181,14 @@ html.tcgplus-filter-other  .listing-item:not([data-tcgplus-tier="other"])  { dis
   border-radius: 3px;
   color: #555;
 }
-.tcgplus-settings-toggle:hover { background: #f1f3f5; color: #111; }
-.tcgplus-settings-toggle[aria-expanded="true"] { background: #e3f0fc; color: #0a66c2; }
+.tcgplus-settings-toggle:hover {
+  background: #f1f3f5;
+  color: #111;
+}
+.tcgplus-settings-toggle[aria-expanded='true'] {
+  background: #e3f0fc;
+  color: #0a66c2;
+}
 
 .tcgplus-settings {
   margin-top: 8px;
@@ -147,8 +198,18 @@ html.tcgplus-filter-other  .listing-item:not([data-tcgplus-tier="other"])  { dis
   flex-direction: column;
   gap: 10px;
 }
-.tcgplus-settings-field { display: flex; flex-direction: column; gap: 4px; }
-.tcgplus-settings-label { font-weight: 600; font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+.tcgplus-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tcgplus-settings-label {
+  font-weight: 600;
+  font-size: 11px;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
 .tcgplus-settings-select {
   font: inherit;
   padding: 3px 6px;
@@ -172,6 +233,14 @@ html.tcgplus-filter-other  .listing-item:not([data-tcgplus-tier="other"])  { dis
   cursor: pointer;
   user-select: none;
 }
-.tcgplus-state-cell input { margin: 0; cursor: pointer; }
-.tcgplus-state-cell-disabled { opacity: 0.4; cursor: not-allowed; }
-.tcgplus-state-cell-disabled input { cursor: not-allowed; }
+.tcgplus-state-cell input {
+  margin: 0;
+  cursor: pointer;
+}
+.tcgplus-state-cell-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.tcgplus-state-cell-disabled input {
+  cursor: not-allowed;
+}

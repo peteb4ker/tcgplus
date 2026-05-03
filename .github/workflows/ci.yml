@@ -6,24 +6,57 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
+    name: Validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Validate manifest.json
         run: |
           python3 - <<'PY'
-          import json, sys
+          import json, os
           m = json.load(open('manifest.json'))
           assert m.get('manifest_version') == 3, f"expected manifest_version 3, got {m.get('manifest_version')}"
           for f in ['name', 'version', 'description']:
               assert m.get(f), f"manifest missing required field: {f}"
-          for f in m.get('content_scripts', [{}])[0].get('js', []) + m.get('content_scripts', [{}])[0].get('css', []):
-              assert __import__('os').path.exists(f), f"content script file missing: {f}"
+          cs = m.get('content_scripts', [{}])[0]
+          for f in cs.get('js', []) + cs.get('css', []):
+              assert os.path.exists(f), f"content script file missing: {f}"
           print("manifest.json OK")
           PY
 
       - name: Check JS syntax
-        run: node --check content.js
+        run: node --check content.js && node --check lib.js
+
+      - name: Check formatting (Prettier)
+        run: npm run format:check
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test

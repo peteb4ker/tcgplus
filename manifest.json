@@ -1,21 +1,15 @@
 {
   "manifest_version": 3,
   "name": "TCGPlus",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Usability improvements for TCGplayer: vendor locations, market-price chips, click-to-filter by region, and configurable hide controls.",
   "content_scripts": [
     {
-      "matches": [
-        "https://www.tcgplayer.com/product/*",
-        "https://www.tcgplayer.com/search/*"
-      ],
-      "js": ["content.js"],
+      "matches": ["https://www.tcgplayer.com/product/*", "https://www.tcgplayer.com/search/*"],
+      "js": ["lib.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
     }
   ],
-  "host_permissions": [
-    "https://seller-stores-backend.tcgplayer.com/*",
-    "https://mpgateway.tcgplayer.com/*"
-  ]
+  "host_permissions": ["https://seller-stores-backend.tcgplayer.com/*", "https://mpgateway.tcgplayer.com/*"]
 }

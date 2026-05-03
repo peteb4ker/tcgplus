@@ -12,13 +12,13 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build extension zip
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           ZIP="tcgplus-${VERSION}.zip"
-          zip -r "$ZIP" manifest.json content.js content.css README.md LICENSE
+          zip -r "$ZIP" manifest.json lib.js content.js content.css README.md LICENSE CHANGELOG.md
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
