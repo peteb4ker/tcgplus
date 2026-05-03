@@ -83,6 +83,7 @@
 html.tcgplus-hide-breakdown       .product-details__breakdown       { display: none !important; }
 html.tcgplus-hide-recommendations .product-details__recommendations { display: none !important; }
 html.tcgplus-hide-footer          footer                            { display: none !important; }
+html.tcgplus-hide-oos             .search-result:has(.mp-oos-badge) { display: none !important; }
 
 html.tcgplus-filter-home   .listing-item:not([data-tcgplus-tier="home"])   { display: none !important; }
 html.tcgplus-filter-nearby .listing-item:not([data-tcgplus-tier="nearby"]) { display: none !important; }

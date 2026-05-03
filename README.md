@@ -6,6 +6,8 @@ TCGPlus is a Chrome extension for [TCGplayer](https://www.tcgplayer.com). It red
 
 ## Features
 
+TCGPlus runs on TCGplayer product pages and on search pages (the views you use to browse a set or a vendor's listings). All of the chips, badges, filters, and panel controls below work the same in both places.
+
 ### Vendor location badges
 Every listing gets a city/state badge under the seller's rating, color-coded by where they ship from:
 
@@ -37,7 +39,8 @@ The gear icon on the panel opens settings:
 - **Home state**: pick any US state. Default is California.
 - **Nearby states**: tick zero or more. The home state is auto-disabled so you can't pick it twice. Default is the western US set (OR, WA, NV, AZ, ID, UT, MT, WY, CO, NM, AK, HI).
 - **Hide on page**: checkboxes to hide TCGplayer's price-breakdown panel, recommendations carousel, and footer.
-- **Always Near Mint**: when on, any product page URL without `Condition=Near+Mint` is rewritten to include it before the listings render. Off by default.
+- **Always Near Mint**: when on, any product or search page URL without `Condition=Near+Mint` is rewritten to include it before the listings render. Off by default.
+- **Always hide out of stock**: when on, any tile on a search page that's marked Out of Stock is hidden. TCGplayer's own out-of-stock filter sometimes misses these. Off by default.
 
 Settings are stored in `localStorage`. Changing the home or nearby states reclassifies listings on the spot without re-fetching anything.
 
@@ -57,7 +60,7 @@ The market price is read straight from the page DOM. Nothing is sent anywhere el
 2. In Chrome, open `chrome://extensions`.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select this directory.
-5. Visit any page under `https://www.tcgplayer.com/product/*`.
+5. Visit any product page (`https://www.tcgplayer.com/product/*`) or search page (`https://www.tcgplayer.com/search/*`).
 
 ## Development
 

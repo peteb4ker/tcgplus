@@ -137,9 +137,20 @@
     forceNearMint = localStorage.getItem(FORCE_NEAR_MINT_KEY) === '1';
   } catch (_) {}
 
+  const HIDE_OOS_KEY = 'tcgplus.hideOOS';
+  let hideOOS = false;
+  try {
+    hideOOS = localStorage.getItem(HIDE_OOS_KEY) === '1';
+  } catch (_) {}
+
+  function applyHideOOS() {
+    document.documentElement.classList.toggle('tcgplus-hide-oos', hideOOS);
+  }
+  applyHideOOS();
+
   function enforceNearMint() {
     if (!forceNearMint) return;
-    if (!/\/product\//.test(location.pathname)) return;
+    if (!/\/(product|search)\//.test(location.pathname)) return;
     const url = new URL(location.href);
     if (url.searchParams.get('Condition') === 'Near Mint') return;
     url.searchParams.set('Condition', 'Near Mint');
@@ -200,7 +211,8 @@
       label.className = 'tcgplus-cart-subtotal';
       countEl.appendChild(label);
     }
-    label.textContent = `$${cartSubtotal.toFixed(2)}`;
+    const text = `$${cartSubtotal.toFixed(2)}`;
+    if (label.textContent !== text) label.textContent = text;
   }
 
   let cartCountObserver = null;
@@ -268,7 +280,15 @@
     return null;
   }
 
-  function findMarketPrice() {
+  function findMarketPrice(item) {
+    if (item) {
+      const tile = item.closest('.search-result');
+      if (tile) {
+        const tileEl = tile.querySelector('.product-info__market-price--value, .product-card__market-price--value');
+        const v = tileEl && parsePrice(tileEl.textContent);
+        if (v) return v;
+      }
+    }
     if (marketPrice != null) return marketPrice;
     const el = document.querySelector(MARKET_PRICE_SELECTOR);
     const v = el && parsePrice(el.textContent);
@@ -391,10 +411,9 @@
   }
 
   function backfillPriceChips() {
-    const market = findMarketPrice();
-    if (!market) return;
     document.querySelectorAll('.listing-item[data-tcgplus="done"]:not([data-tcgplus-chips])').forEach((el) => {
-      addPriceChips(el, market);
+      const market = findMarketPrice(el);
+      if (market) addPriceChips(el, market);
     });
   }
 
@@ -478,7 +497,7 @@
     item.dataset.tcgplusTier = tier;
     item.dataset.tcgplus = 'done';
 
-    const market = findMarketPrice();
+    const market = findMarketPrice(item);
     if (market) addPriceChips(item, market);
 
     renderPanel();
@@ -521,6 +540,7 @@
           <div class="tcgplus-settings-label">Filters</div>
           <div class="tcgplus-panel-toggles">
             <label class="tcgplus-panel-toggle-item"><input type="checkbox" id="tcgplus-force-near-mint"${forceNearMint ? ' checked' : ''}>Always Near Mint</label>
+            <label class="tcgplus-panel-toggle-item"><input type="checkbox" id="tcgplus-hide-oos"${hideOOS ? ' checked' : ''}>Always hide out of stock</label>
           </div>
         </div>
       </div>
@@ -557,6 +577,14 @@
             localStorage.setItem(FORCE_NEAR_MINT_KEY, t.checked ? '1' : '0');
           } catch (_) {}
           enforceNearMint();
+          return;
+        }
+        if (t.id === 'tcgplus-hide-oos') {
+          hideOOS = t.checked;
+          try {
+            localStorage.setItem(HIDE_OOS_KEY, t.checked ? '1' : '0');
+          } catch (_) {}
+          applyHideOOS();
           return;
         }
         if (t.dataset.nearby) {
@@ -596,14 +624,28 @@
       annotate(el);
     });
     backfillPriceChips();
-    renderPanel();
     watchCartCount();
     renderCartBadge();
   }
 
   let scanTimer = null;
-  const observer = new MutationObserver(() => {
+  function isOurNode(n) {
+    if (!n || n.nodeType !== 1) return false;
+    const cn = typeof n.className === 'string' ? n.className : (n.className && n.className.baseVal) || '';
+    return cn.indexOf('tcgplus-') !== -1;
+  }
+  const observer = new MutationObserver((mutations) => {
     if (scanTimer) return;
+    const externalChange = mutations.some((m) => {
+      if (m.target && m.target.closest && m.target.closest('.tcgplus-panel')) return false;
+      const added = m.addedNodes;
+      const removed = m.removedNodes;
+      if (!added.length && !removed.length) return false;
+      for (const n of added) if (!isOurNode(n)) return true;
+      for (const n of removed) if (!isOurNode(n)) return true;
+      return false;
+    });
+    if (!externalChange) return;
     scanTimer = setTimeout(() => {
       scanTimer = null;
       scan();
