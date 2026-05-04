@@ -4,9 +4,19 @@
   "version": "0.2.0",
   "description": "Usability improvements for TCGplayer: vendor locations, market-price chips, click-to-filter by region, and configurable hide controls.",
   "permissions": ["storage"],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "options_page": "options/index.html",
   "action": {
-    "default_title": "Open TCGPlus settings"
+    "default_title": "Open TCGPlus settings",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
   },
   "background": {
     "service_worker": "background.js"
