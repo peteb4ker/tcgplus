@@ -2,3 +2,5 @@ node_modules
 dist
 *.zip
 docs/images
+test-results
+playwright-report

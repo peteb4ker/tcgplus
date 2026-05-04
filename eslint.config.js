@@ -7,7 +7,7 @@ const globals = require('globals');
 
 module.exports = [
   {
-    ignores: ['node_modules/**', 'dist/**', 'docs/**', '*.zip'],
+    ignores: ['node_modules/**', 'dist/**', 'docs/**', '*.zip', 'test-results/**', 'playwright-report/**'],
   },
   {
     languageOptions: {
@@ -89,6 +89,15 @@ module.exports = [
   },
   {
     files: ['tests/**/*.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
+    files: ['e2e/**/*.js', 'playwright.config.js'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: {

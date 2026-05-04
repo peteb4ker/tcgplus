@@ -89,7 +89,10 @@ function parsePrice(text) {
  */
 function parseShippingCost(text) {
   if (!text) return null;
-  const explicit = text.match(/\+?\s*\$\s*(\d+(?:\.\d+)?)\s*shipping/i);
+  // Anchor to the start of the trimmed text so an unrelated $price elsewhere
+  // (e.g. a sibling listing-price) can't be mistaken for the shipping cost.
+  const trimmed = text.replace(/^\s+/, '');
+  const explicit = trimmed.match(/^\+?\s*\$\s*(\d+(?:\.\d+)?)\s*shipping/i);
   if (explicit) {
     const v = parseFloat(explicit[1]);
     if (Number.isFinite(v) && v >= 0) return v;
