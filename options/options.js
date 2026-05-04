@@ -45,6 +45,16 @@
     }, 1200);
   }
 
+  // -- Version label ------------------------------------------------------
+  const versionEl = document.getElementById('tcgplus-version');
+  if (versionEl) {
+    try {
+      versionEl.textContent = chrome.runtime.getManifest().version;
+    } catch (_) {
+      versionEl.textContent = '?';
+    }
+  }
+
   // -- Load + bind --------------------------------------------------------
   await migrateFromLocalStorageIfNeeded();
   const stored = await loadAllSettings();

@@ -8,8 +8,11 @@
   <body>
     <main class="page">
       <header class="page__header">
-        <h1>TCGPlus</h1>
-        <p class="page__tagline">Settings</p>
+        <img class="page__icon" src="../icons/icon-128.png" alt="" width="56" height="56" />
+        <div class="page__title">
+          <h1>TCGPlus</h1>
+          <p class="page__tagline">Settings</p>
+        </div>
       </header>
 
       <section class="card">
@@ -49,6 +52,36 @@
         Settings save instantly to your browser. Open a TCGplayer tab to see them take effect.
         <span id="status" class="status" aria-live="polite"></span>
       </p>
+
+      <section class="card card--about" aria-labelledby="about-heading">
+        <h2 id="about-heading">About TCGPlus</h2>
+        <p>
+          TCGPlus is an independent, open-source browser extension. It is
+          <strong>not affiliated with, endorsed by, or certified by TCGplayer, Inc.</strong>
+          "TCGplayer" and the TCGplayer logo are trademarks of TCGplayer, Inc.
+        </p>
+        <p>
+          <strong>How your data flows.</strong> TCGPlus runs entirely in your browser and uses your existing TCGplayer
+          session. It fetches vendor information and your cart subtotal from TCGplayer's own endpoints, reads market
+          prices from the page you're viewing, and stores your settings locally in <code>chrome.storage.local</code>.
+          Nothing is sent to any third party. There is no TCGPlus server.
+        </p>
+        <p>
+          <strong>What TCGPlus does on the page.</strong> TCGPlus only adds visual overlays and reads what's already on
+          the page. It doesn't scrape, doesn't automate clicks or purchases, and doesn't change how TCGplayer's site
+          behaves beyond the toggles you control in settings.
+        </p>
+        <p>
+          <strong>Source &amp; issues.</strong> TCGPlus is MIT-licensed. Source code, bug reports, and feature requests:
+          <a href="https://github.com/peteb4ker/tcgplus" target="_blank" rel="noopener">github.com/peteb4ker/tcgplus</a
+          >. See the
+          <a href="https://github.com/peteb4ker/tcgplus/blob/main/docs/privacy.md" target="_blank" rel="noopener"
+            >privacy policy</a
+          >
+          for the full data-flow description.
+        </p>
+        <p class="page__version">TCGPlus v<span id="tcgplus-version">…</span></p>
+      </section>
     </main>
     <script src="../lib.js"></script>
     <script src="../storage.js"></script>

@@ -30,7 +30,7 @@ Privacy and trust:
 - The only network requests it makes are to TCGplayer's own endpoints (vendor info and your cart subtotal), using the session you're already logged into.
 - Open source. MIT-licensed. Source, issues, and changelog at https://github.com/peteb4ker/tcgplus
 
-TCGPlus is an independent tool. It is not affiliated with, endorsed by, or certified by TCGplayer, Inc. "TCGplayer" and the TCGplayer logo are trademarks of TCGplayer, Inc. Using browser extensions on TCGplayer may be inconsistent with TCGplayer's Terms of Service; install at your discretion.
+TCGPlus is an independent tool. It is not affiliated with, endorsed by, or certified by TCGplayer, Inc. "TCGplayer" and the TCGplayer logo are trademarks of TCGplayer, Inc. TCGPlus only adds visual overlays and reads what's already on the page. It doesn't scrape, doesn't automate clicks or purchases, and doesn't change how TCGplayer's site behaves beyond the toggles you control in settings.
 
 ## Category
 
