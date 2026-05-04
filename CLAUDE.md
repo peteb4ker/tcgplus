@@ -68,8 +68,10 @@ There is no separate `CHANGELOG.md`. Release notes are auto-generated on the Git
 ## Local checks before pushing
 
 ```sh
-npm install   # once
+npm install              # once
+npx playwright install   # once, for the e2e suite
 npm test
+npm run test:e2e
 npm run format:check
 npm run lint
 npm run typecheck
@@ -109,6 +111,7 @@ When you change `renderDealChipHtml` or `recomputeDealChips` in `content.js`, up
 - **`content.css`**: all styling. Use `tcgplus-` prefixed classes only. Don't style raw TCGplayer classes — that breaks when they reorganize.
 - **`manifest.json`**: MV3 manifest. `lib.js` must come before `content.js` in `content_scripts.js`.
 - **`tests/`**: Node `--test` unit tests for `lib.js` only. Pure-helper coverage. Add a test for any new helper.
+- **`e2e/`**: Playwright tests that load the unpacked extension into Chromium and exercise the content script + options page against mocked TCGplayer routes. Add a test when you change panel rendering, chip placement, cart fetching, or any cross-cutting behavior.
 
 When the **Options page** lands (planned future work), it'll live in its own HTML/JS file referenced from `manifest.json` `options_page`. Settings UI will move out of the floating panel and into that page.
 
@@ -143,9 +146,10 @@ Critical paths:
 The `.github/workflows/ci.yml` workflow runs:
 
 - **Validate**: manifest schema sanity, JS syntax, Prettier, ESLint, `tsc --checkJs`.
-- **Test**: `npm test` (Node `--test`).
+- **Test**: `npm test` (Node `--test`) over `lib.js` pure helpers.
+- **E2E**: `npm run test:e2e` (Playwright) loads the unpacked extension into headless Chromium with mocked TCGplayer routes and asserts on the panel, chips, cart subtotal, filter, and OOS hide behavior.
 
-Both must pass on every PR. CodeQL runs separately as the third required check.
+All three plus CodeQL must pass on every PR.
 
 If you change CI, update this section. If you add a required check, also update the branch protection contexts via `gh api repos/peteb4ker/tcgplus/branches/main/protection`.
 

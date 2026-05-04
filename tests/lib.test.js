@@ -23,6 +23,14 @@ test('parseShippingCost: explicit "$X.XX Shipping"', () => {
   assert.equal(lib.parseShippingCost('+ $1.31 Shipping  Free Shipping on Orders Over $5'), 1.31);
 });
 
+test('parseShippingCost: rejects price-then-shipping conflation', () => {
+  // A parent element containing both a listing price and the word "Shipping"
+  // could trick a permissive regex into reading the listing price as
+  // shipping cost. The anchor on parseShippingCost should refuse it.
+  assert.equal(lib.parseShippingCost('Home Seller Near Mint $8.00 Shipping: Included'), 0);
+  assert.equal(lib.parseShippingCost('Near Mint $8.00 + $1.31 Shipping'), null);
+});
+
 test('parseShippingCost: free / included', () => {
   assert.equal(lib.parseShippingCost('Shipping: Included'), 0);
   assert.equal(lib.parseShippingCost(' shipping:  included '), 0);

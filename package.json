@@ -5,12 +5,14 @@
   "description": "Chrome extension that adds usability improvements to TCGplayer.",
   "scripts": {
     "test": "node --test tests/*.test.js",
+    "test:e2e": "playwright test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@playwright/test": "^1.50.1",
     "@types/chrome": "0.0.287",
     "@types/node": "22.10.2",
     "eslint": "9.18.0",
