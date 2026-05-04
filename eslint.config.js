@@ -31,24 +31,34 @@ module.exports = [
     },
   },
   {
-    files: ['lib.js'],
+    files: ['background.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: {
+        chrome: 'readonly',
+      },
+    },
+  },
+  {
+    files: ['lib.js', 'storage.js'],
     languageOptions: {
       globals: {
         module: 'writable',
+        chrome: 'readonly',
       },
     },
     rules: {
-      // lib.js is loaded as a content script ahead of content.js and is
-      // expected to expose its top-level functions to the same isolated
-      // world. Globals here are intentional.
+      // lib.js and storage.js are loaded as content scripts ahead of content.js
+      // and are expected to expose their top-level functions to the same
+      // isolated world. Globals here are intentional.
       'no-implicit-globals': 'off',
     },
   },
   {
-    files: ['content.js'],
+    files: ['content.js', 'options/**/*.js'],
     languageOptions: {
       globals: {
-        // Provided by lib.js loaded earlier in the same content-script world.
+        // Provided by lib.js loaded earlier in the same isolated world.
         STATES: 'readonly',
         STATE_NAMES: 'readonly',
         STATE_CODES: 'readonly',
@@ -67,6 +77,13 @@ module.exports = [
         formatPctDiff: 'readonly',
         tierLabel: 'readonly',
         isOurNode: 'readonly',
+        // Provided by storage.js loaded between lib.js and content.js.
+        STORAGE_KEYS: 'readonly',
+        ALL_STORAGE_KEYS: 'readonly',
+        loadAllSettings: 'readonly',
+        saveSetting: 'readonly',
+        removeSetting: 'readonly',
+        migrateFromLocalStorageIfNeeded: 'readonly',
       },
     },
   },

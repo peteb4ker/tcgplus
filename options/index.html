@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>TCGPlus settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="page__header">
+        <h1>TCGPlus</h1>
+        <p class="page__tagline">Settings</p>
+      </header>
+
+      <section class="card">
+        <h2>Home state</h2>
+        <p class="card__hint">Listings from your home state get a green badge.</p>
+        <select id="home-state" class="select"></select>
+      </section>
+
+      <section class="card">
+        <h2>Nearby states</h2>
+        <p class="card__hint">
+          Listings from nearby states get a yellow badge. Your home state is excluded automatically.
+        </p>
+        <div id="nearby-grid" class="state-grid"></div>
+      </section>
+
+      <section class="card">
+        <h2>Hide on page</h2>
+        <p class="card__hint">Remove parts of TCGplayer's product pages you don't want to see.</p>
+        <div class="toggles">
+          <label><input type="checkbox" data-toggle-id="breakdown" /> Price breakdown panel</label>
+          <label><input type="checkbox" data-toggle-id="recommendations" /> Recommendations carousel</label>
+          <label><input type="checkbox" data-toggle-id="footer" /> Page footer</label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Filters</h2>
+        <p class="card__hint">URL- and tile-level filters that apply on every TCGplayer page.</p>
+        <div class="toggles">
+          <label><input type="checkbox" id="force-near-mint" /> Always Near Mint</label>
+          <label><input type="checkbox" id="hide-oos" /> Always hide out-of-stock tiles</label>
+        </div>
+      </section>
+
+      <p class="page__footnote">
+        Settings save instantly to your browser. Open a TCGplayer tab to see them take effect.
+        <span id="status" class="status" aria-live="polite"></span>
+      </p>
+    </main>
+    <script src="../lib.js"></script>
+    <script src="../storage.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

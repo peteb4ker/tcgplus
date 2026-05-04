@@ -1,0 +1,150 @@
+:root {
+  --tcgplus-fg: #1f2329;
+  --tcgplus-fg-muted: #586069;
+  --tcgplus-bg: #f6f7f9;
+  --tcgplus-card-bg: #fff;
+  --tcgplus-border: #d6d9de;
+  --tcgplus-accent: #05772d;
+  --tcgplus-accent-bg: #e7f4ec;
+  --tcgplus-warn: #c62828;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--tcgplus-bg);
+  color: var(--tcgplus-fg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.page {
+  max-width: 720px;
+  margin: 32px auto 64px;
+  padding: 0 24px;
+}
+
+.page__header {
+  margin-bottom: 24px;
+}
+
+.page__header h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.01em;
+}
+
+.page__tagline {
+  margin: 4px 0 0;
+  color: var(--tcgplus-fg-muted);
+  font-size: 14px;
+}
+
+.card {
+  background: var(--tcgplus-card-bg);
+  border: 1px solid var(--tcgplus-border);
+  border-radius: 8px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+}
+
+.card h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.card__hint {
+  margin: 0 0 14px;
+  color: var(--tcgplus-fg-muted);
+  font-size: 13px;
+}
+
+.select {
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  background: #fff;
+  border: 1px solid var(--tcgplus-border);
+  border-radius: 6px;
+}
+.select:focus {
+  outline: 2px solid var(--tcgplus-accent);
+  outline-offset: 1px;
+}
+
+.state-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 4px 8px;
+}
+
+.state-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+}
+.state-cell:hover {
+  background: var(--tcgplus-accent-bg);
+}
+.state-cell input {
+  margin: 0;
+}
+.state-cell--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.state-cell--disabled:hover {
+  background: transparent;
+}
+
+.toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toggles label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.page__footnote {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--tcgplus-fg-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--tcgplus-accent);
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition:
+    opacity 120ms ease-out,
+    transform 120ms ease-out;
+}
+.status--visible {
+  opacity: 1;
+  transform: translateY(0);
+  background: var(--tcgplus-accent-bg);
+}
