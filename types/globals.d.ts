@@ -31,3 +31,25 @@ declare function formatAbsDiff(diff: number): string;
 declare function formatPctDiff(pct: number): string;
 declare function tierLabel(tier: Tier, homeState: string, stateNames?: Record<string, string>): string;
 declare function isOurNode(n: Node | null | undefined): boolean;
+
+// storage.js — chrome.storage.local helpers shared by content.js and the options page.
+
+type StorageKeyMap = {
+  homeState: string;
+  nearbyStates: string;
+  activeFilter: string;
+  hideBreakdown: string;
+  hideRecommendations: string;
+  hideFooter: string;
+  forceNearMint: string;
+  hideOOS: string;
+  migrated: string;
+};
+
+declare const STORAGE_KEYS: StorageKeyMap;
+declare const ALL_STORAGE_KEYS: ReadonlyArray<string>;
+
+declare function loadAllSettings(): Promise<Record<string, unknown>>;
+declare function saveSetting(key: string, value: unknown): Promise<void>;
+declare function removeSetting(key: string): Promise<void>;
+declare function migrateFromLocalStorageIfNeeded(): Promise<void>;

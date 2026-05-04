@@ -79,26 +79,6 @@
   background: transparent !important;
 }
 
-.tcgplus-panel-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 10px;
-  font-size: 12px;
-  color: #333;
-}
-.tcgplus-panel-toggle-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  user-select: none;
-}
-.tcgplus-panel-toggle-item input {
-  cursor: pointer;
-  margin: 0;
-}
-
 html.tcgplus-hide-breakdown .product-details__breakdown {
   display: none !important;
 }
@@ -201,63 +181,4 @@ html.tcgplus-filter-other .listing-item:not([data-tcgplus-tier='other']) {
 .tcgplus-settings-toggle:hover {
   background: #f1f3f5;
   color: #111;
-}
-.tcgplus-settings-toggle[aria-expanded='true'] {
-  background: #e3f0fc;
-  color: #0a66c2;
-}
-
-.tcgplus-settings {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #eee;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.tcgplus-settings-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.tcgplus-settings-label {
-  font-weight: 600;
-  font-size: 11px;
-  color: #555;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.tcgplus-settings-select {
-  font: inherit;
-  padding: 3px 6px;
-  border: 1px solid #c0c4ca;
-  border-radius: 4px;
-  background: #fff;
-}
-.tcgplus-state-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 2px 4px;
-  max-height: 180px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-.tcgplus-state-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 11px;
-  cursor: pointer;
-  user-select: none;
-}
-.tcgplus-state-cell input {
-  margin: 0;
-  cursor: pointer;
-}
-.tcgplus-state-cell-disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.tcgplus-state-cell-disabled input {
-  cursor: not-allowed;
 }
