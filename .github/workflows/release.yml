@@ -18,7 +18,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           ZIP="tcgplus-${VERSION}.zip"
-          zip -r "$ZIP" manifest.json lib.js content.js content.css README.md LICENSE CHANGELOG.md
+          zip -r "$ZIP" manifest.json lib.js storage.js content.js content.css background.js icons options README.md LICENSE
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
