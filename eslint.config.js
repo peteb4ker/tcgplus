@@ -97,7 +97,7 @@ module.exports = [
     },
   },
   {
-    files: ['e2e/**/*.js', 'playwright.config.js'],
+    files: ['e2e/**/*.js', 'playwright.config.js', 'tools/**/*.js'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: {

@@ -58,7 +58,7 @@ TCGPlus only calls TCGplayer's own APIs:
 - `seller-stores-backend.tcgplayer.com/sm/seller/<key>` for each unique vendor on the page (used for the location badge).
 - `mpgateway.tcgplayer.com/v1/cart/<key>/summary` for the cart subtotal and per-seller breakdown.
 
-The market price is read straight from the page DOM. Nothing is sent anywhere else.
+The market price is read straight from the page DOM. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
 
 ## Install (from source)
 
