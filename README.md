@@ -37,9 +37,9 @@ Each listing gets a row of chips that show price-vs-market, shipping cost, and w
 
 The cart icon in TCGplayer's header normally shows the item count. TCGPlus adds the cart's current subtotal next to it in the same green text TCGplayer uses for listing prices, so you can see what you're spending without opening the cart. It always shows, even at `$0.00`. The number refreshes whenever the count badge changes, so adding or removing an item updates it automatically. Same number is what feeds the Deal-chip math.
 
-### Settings drawer
+### Settings page
 
-The gear icon on the panel opens settings:
+Click the gear icon on the floating panel, click the TCGPlus icon in your browser toolbar, or open **Extension options** from `chrome://extensions` — they all open the same dedicated settings page:
 
 - **Home state**: pick any US state. Default is California.
 - **Nearby states**: tick zero or more. The home state is auto-disabled so you can't pick it twice. Default is the western US set (OR, WA, NV, AZ, ID, UT, MT, WY, CO, NM, AK, HI).
@@ -47,9 +47,9 @@ The gear icon on the panel opens settings:
 - **Always Near Mint**: when on, any product or search page URL without `Condition=Near+Mint` is rewritten to include it before the listings render. Off by default.
 - **Always hide out of stock**: when on, any tile on a search page that's marked Out of Stock is hidden. TCGplayer's own out-of-stock filter sometimes misses these. Off by default.
 
-Settings are stored in `localStorage`. Changing the home or nearby states reclassifies listings on the spot without re-fetching anything.
+Settings are stored in `chrome.storage.local`. Changes apply live to any open TCGplayer tab — no reload needed.
 
-![Settings drawer with home state, nearby states, and hide controls](docs/images/settings.png)
+![TCGPlus settings page](docs/images/options-page.png)
 
 ### How it works
 
