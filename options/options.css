@@ -31,13 +31,29 @@ body {
 }
 
 .page__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
-.page__header h1 {
+.page__icon {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.page__title {
+  min-width: 0;
+}
+
+.page__title h1 {
   margin: 0;
   font-size: 28px;
   letter-spacing: -0.01em;
+  line-height: 1.05;
 }
 
 .page__tagline {
@@ -147,4 +163,43 @@ body {
   opacity: 1;
   transform: translateY(0);
   background: var(--tcgplus-accent-bg);
+}
+
+.card--about {
+  margin-top: 8px;
+  background: transparent;
+  border: 1px dashed var(--tcgplus-border);
+  color: var(--tcgplus-fg-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.card--about h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tcgplus-fg-muted);
+}
+.card--about p {
+  margin: 0 0 10px;
+}
+.card--about p:last-of-type {
+  margin-bottom: 0;
+}
+.card--about strong {
+  color: var(--tcgplus-fg);
+}
+.card--about a {
+  color: var(--tcgplus-accent);
+}
+.card--about code {
+  background: var(--tcgplus-bg);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 11.5px;
+}
+.page__version {
+  margin-top: 12px;
+  font-size: 11px;
+  text-align: right;
+  color: var(--tcgplus-fg-muted);
 }
