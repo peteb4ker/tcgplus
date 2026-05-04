@@ -5,6 +5,9 @@
   "description": "Usability improvements for TCGplayer: vendor locations, market-price chips, click-to-filter by region, and configurable hide controls.",
   "permissions": ["storage"],
   "options_page": "options/index.html",
+  "action": {
+    "default_title": "Open TCGPlus settings"
+  },
   "background": {
     "service_worker": "background.js"
   },
