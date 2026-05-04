@@ -62,6 +62,14 @@ const DEFAULT_NEARBY = ['OR', 'WA', 'NV', 'AZ', 'ID', 'UT', 'MT', 'WY', 'CO', 'N
 const VALID_TIERS = new Set(['home', 'nearby', 'other']);
 const FREE_SHIP_THRESHOLD = 5.0;
 
+/**
+ * Extract a positive dollar amount from arbitrary text.
+ * Returns null when no amount is present or when the amount is zero
+ * (zero is treated as missing because TCGplayer never lists $0 prices).
+ *
+ * @param {string | null | undefined} text
+ * @returns {number | null}
+ */
 function parsePrice(text) {
   if (!text) return null;
   const m = text.replace(/,/g, '').match(/\$\s*(\d+(?:\.\d+)?)/);
@@ -70,6 +78,15 @@ function parsePrice(text) {
   return Number.isFinite(v) && v > 0 ? v : null;
 }
 
+/**
+ * Parse a shipping cost from a TCGplayer shipping cell.
+ * Recognises explicit "$X.XX Shipping", "Shipping: Included", and bare
+ * "Free Shipping" (but rejects "Free Shipping on Orders Over $5", which is
+ * a per-seller promo, not actually-free shipping for a single listing).
+ *
+ * @param {string | null | undefined} text
+ * @returns {number | null} cost in dollars, 0 for free shipping, null when unknown.
+ */
 function parseShippingCost(text) {
   if (!text) return null;
   const explicit = text.match(/\+?\s*\$\s*(\d+(?:\.\d+)?)\s*shipping/i);
@@ -82,12 +99,31 @@ function parseShippingCost(text) {
   return null;
 }
 
+/**
+ * Pull the alphanumeric seller key out of a TCGplayer seller URL like
+ * `/sellers/<name>/<key>`.
+ *
+ * @param {string | null | undefined} href
+ * @returns {string | null}
+ */
 function extractSellerKey(href) {
   if (!href) return null;
   const m = href.match(/\/sellers\/[^/]+\/([a-z0-9]+)/i);
   return m ? m[1] : null;
 }
 
+/**
+ * @typedef {'home' | 'nearby' | 'other' | 'intl'} Tier
+ */
+
+/**
+ * Classify a US state code into one of the four tiers used by the panel.
+ *
+ * @param {string} stateCode  Two-letter USPS code; empty means non-US/intl.
+ * @param {string} homeState  Two-letter USPS code of the user's home state.
+ * @param {Set<string>} [nearbyStates]  Set of two-letter codes considered nearby.
+ * @returns {Tier}
+ */
 function classifyState(stateCode, homeState, nearbyStates) {
   if (!stateCode) return 'intl';
   if (stateCode === homeState) return 'home';
@@ -95,11 +131,32 @@ function classifyState(stateCode, homeState, nearbyStates) {
   return 'other';
 }
 
+/**
+ * @typedef {object} SellerInfo
+ * @property {string=} addressCity
+ * @property {string=} addressTerritory
+ * @property {string=} addressCountryCode
+ * @property {string=} location
+ */
+
+/**
+ * Pull the two-letter state code from a seller-info record. Empty string for
+ * non-US sellers (callers treat empty as "international").
+ *
+ * @param {SellerInfo | null | undefined} info
+ * @returns {string}
+ */
 function stateCodeFromInfo(info) {
   if (!info) return '';
   return info.addressCountryCode === 'US' ? info.addressTerritory || '' : '';
 }
 
+/**
+ * Human-readable single-line location label for a seller.
+ *
+ * @param {SellerInfo | null | undefined} info
+ * @returns {string}
+ */
 function formatLocation(info) {
   if (!info) return 'Unknown';
   const city = info.addressCity || '';
@@ -109,6 +166,20 @@ function formatLocation(info) {
   return info.location || country || 'Unknown';
 }
 
+/**
+ * @typedef {object} ChipColor
+ * @property {string} bg
+ * @property {string} fg
+ */
+
+/**
+ * Background/foreground colors for the price-vs-market chip.
+ * Solid green below market, neutral at parity, yellow→red gradient as the
+ * percentage climbs to 10%, capped at solid red.
+ *
+ * @param {number} pct
+ * @returns {ChipColor}
+ */
 function chipColorForPct(pct) {
   if (pct < 0) return { bg: '#1e7e1e', fg: '#fff' };
   if (pct === 0) return { bg: '#888', fg: '#fff' };
@@ -118,31 +189,73 @@ function chipColorForPct(pct) {
   return { bg: `hsl(${hue}, 78%, 45%)`, fg };
 }
 
+/**
+ * @typedef {ChipColor & { text: string }} ShippingChip
+ */
+
+/**
+ * Color and label for the shipping chip given a numeric cost.
+ *
+ * @param {number} cost
+ * @returns {ShippingChip}
+ */
 function chipForShipping(cost) {
   if (cost === 0) return { bg: '#1e7e1e', fg: '#fff', text: 'Shipping: Included' };
   if (cost < 2) return { bg: '#cc8c19', fg: '#fff', text: `$${cost.toFixed(2)} shipping` };
   return { bg: '#c62828', fg: '#fff', text: `$${cost.toFixed(2)} high shipping` };
 }
 
+/**
+ * Format a signed dollar diff as "+$1.23" / "-$1.23" / "$0.00".
+ *
+ * @param {number} diff
+ * @returns {string}
+ */
 function formatAbsDiff(diff) {
   const sign = diff > 0 ? '+' : diff < 0 ? '-' : '';
   return `${sign}$${Math.abs(diff).toFixed(2)}`;
 }
 
+/**
+ * Format a signed percentage as "+12.3%" / "-4.5%" / "0.0%".
+ *
+ * @param {number} pct
+ * @returns {string}
+ */
 function formatPctDiff(pct) {
   const sign = pct > 0 ? '+' : '';
   return `${sign}${pct.toFixed(1)}%`;
 }
 
+/**
+ * Display label for the panel row corresponding to a tier.
+ *
+ * @param {Tier} tier
+ * @param {string} homeState
+ * @param {Record<string, string>} [stateNames]
+ * @returns {string}
+ */
 function tierLabel(tier, homeState, stateNames) {
   if (tier === 'home') return (stateNames && stateNames[homeState]) || homeState;
   if (tier === 'nearby') return 'Nearby';
   return 'Other US';
 }
 
+/**
+ * True when a node is one of TCGPlus's own elements (its className contains
+ * "tcgplus-"). Used by the page-level MutationObserver to ignore changes that
+ * we caused ourselves.
+ *
+ * @param {Node | null | undefined} n
+ * @returns {boolean}
+ */
 function isOurNode(n) {
   if (!n || n.nodeType !== 1) return false;
-  const cn = typeof n.className === 'string' ? n.className : (n.className && n.className.baseVal) || '';
+  const el = /** @type {Element} */ (n);
+  const cn =
+    typeof el.className === 'string'
+      ? el.className
+      : (el.className && /** @type {SVGAnimatedString} */ (/** @type {unknown} */ (el.className)).baseVal) || '';
   return cn.indexOf('tcgplus-') !== -1;
 }
 

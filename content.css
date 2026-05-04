@@ -154,6 +154,23 @@ html.tcgplus-filter-other .listing-item:not([data-tcgplus-tier='other']) {
   padding-bottom: 5px;
   margin-bottom: 6px;
 }
+.tcgplus-panel-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  background: #fff4e5;
+  border: 1px solid #f0c47a;
+  border-radius: 4px;
+  color: #6b3f00;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.tcgplus-panel-warning::before {
+  content: '⚠ ';
+  font-weight: 700;
+}
 .tcgplus-panel-row {
   line-height: 1.7;
   padding: 1px 4px;

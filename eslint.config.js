@@ -1,0 +1,91 @@
+// Flat ESLint config (ESLint 9+).
+// We keep the rule set tight: no implicit globals (catches accidental leakage
+// between lib.js and content.js), no unused vars, no `var`, no console.error
+// in production paths (console.warn is fine for the degradation reporting).
+
+const globals = require('globals');
+
+module.exports = [
+  {
+    ignores: ['node_modules/**', 'dist/**', 'docs/**', '*.zip'],
+  },
+  {
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: {
+        ...globals.browser,
+        chrome: 'readonly',
+      },
+    },
+    rules: {
+      'no-implicit-globals': 'error',
+      'no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
+      'no-var': 'error',
+      'prefer-const': 'error',
+      eqeqeq: ['error', 'smart'],
+      'no-undef': 'error',
+    },
+  },
+  {
+    files: ['lib.js'],
+    languageOptions: {
+      globals: {
+        module: 'writable',
+      },
+    },
+    rules: {
+      // lib.js is loaded as a content script ahead of content.js and is
+      // expected to expose its top-level functions to the same isolated
+      // world. Globals here are intentional.
+      'no-implicit-globals': 'off',
+    },
+  },
+  {
+    files: ['content.js'],
+    languageOptions: {
+      globals: {
+        // Provided by lib.js loaded earlier in the same content-script world.
+        STATES: 'readonly',
+        STATE_NAMES: 'readonly',
+        STATE_CODES: 'readonly',
+        DEFAULT_NEARBY: 'readonly',
+        VALID_TIERS: 'readonly',
+        FREE_SHIP_THRESHOLD: 'readonly',
+        parsePrice: 'readonly',
+        parseShippingCost: 'readonly',
+        extractSellerKey: 'readonly',
+        classifyState: 'readonly',
+        stateCodeFromInfo: 'readonly',
+        formatLocation: 'readonly',
+        chipColorForPct: 'readonly',
+        chipForShipping: 'readonly',
+        formatAbsDiff: 'readonly',
+        formatPctDiff: 'readonly',
+        tierLabel: 'readonly',
+        isOurNode: 'readonly',
+      },
+    },
+  },
+  {
+    files: ['tests/**/*.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
+    files: ['eslint.config.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+];

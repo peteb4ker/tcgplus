@@ -1,50 +1,156 @@
 # CLAUDE.md
 
-Notes for AI agents working on this repo.
+Steering for AI agents working on TCGPlus.
+
+## What this project is
+
+> **TCGPlus reduces the friction of using TCGPlayer.com so it's easier to find and buy cards.**
+
+That single sentence is the project's mandate. Every PR should be evaluated against it. If a feature doesn't make finding or buying cards on TCGplayer easier, it's out of scope.
+
+TCGPlus achieves this by **adding to and removing parts of the TCGplayer UI** to improve usability. We are a usability layer on top of someone else's site.
+
+### Out of scope (do not propose)
+
+- Decklist building, collection tracking, sealed product tracking, scrying, anything that competes with separate apps.
+- Anything that requires a server, a database, or a third party (analytics, error tracking, A/B testing, feature flags).
+- Anything that interacts with sites other than `tcgplayer.com`.
+
+## Privacy is non-negotiable
+
+**No analytics. No servers. Ever.**
+
+The only network calls TCGPlus makes are to TCGplayer's own APIs (currently `seller-stores-backend.tcgplayer.com` and `mpgateway.tcgplayer.com`). All state lives in the user's `localStorage`. Nothing is logged anywhere outside the user's browser.
+
+If a future feature genuinely needs server-side help (e.g. a community price database), it's a separate project, not a TCGPlus feature. Don't add Sentry, don't add a "report a bug" upload button, don't add a CDN-hosted config. Don't.
+
+When you add a new fetch target, add it to `manifest.json` `host_permissions`. New permissions are fine when they enable a feature; they are not fine for the sake of "future use."
+
+## GitHub Issues is the backlog
+
+**Don't propose work out of thin air. Pull from issues.**
+
+Every feature, bug, and chore lives as a GitHub issue on this repo. The issues are the canonical backlog. When you're handed an open-ended ask like "what should we work on next?" or "pick something to improve," do this:
+
+1. List open issues (oldest priority first, then by interaction): `gh issue list --repo peteb4ker/tcgplus --state open --limit 20`.
+2. Pick the issue you'll work on. Comment on it stating you're starting, so the user has a record.
+3. Work on a feature branch (next section). Reference the issue in the PR body with a closing keyword (`Closes #N`).
+4. When the PR merges, the issue closes automatically. If your work didn't fully resolve the issue, leave it open and post a status comment with what's done and what's left.
+
+When the user describes a new feature, bug, or chore in conversation:
+
+- Open an issue first via `gh issue create`. Use one of the labels `feature` / `bug` / `chore` / `docs` / `tech-debt`. Reference where the idea came from if helpful.
+- Then either start the work on a branch (with `Closes #N` in the PR body) or stop after creating the issue and let the user prioritize.
+
+When you're partway through work and find an out-of-scope problem, file a new issue with enough context that someone (you, on a later visit) can pick it up cold. Don't sneak unrelated fixes into the current PR.
+
+Keep issue titles imperative and short ("Move settings to a singleton options page"), with the body carrying the why and acceptance criteria.
 
 ## Always work on a feature branch
 
-`main` is protected. Never commit directly to `main`. For any change:
+`main` is protected. Required status checks: `Validate`, `Test`, `Analyze (javascript)`. Force-pushing is disabled.
 
-1. Make sure you're not on `main`. If you are, create a feature branch: `git checkout -b feat/short-description` (use one of `feat/`, `fix/`, `chore/`, `docs/`, `ci/`, `refactor/` as the prefix).
-2. Commit on that branch.
-3. Push and open a PR via `gh pr create`.
-4. CI must pass. The required status checks are `Validate`, `Test`, and `Analyze (javascript)` (CodeQL). Auto-merge is enabled on the repo, so once checks pass and the PR is approved (if a reviewer was requested) it merges itself.
-5. Force-pushing to `main` is disabled. Don't try.
+1. Branch off `main` with one of `feat/`, `fix/`, `chore/`, `docs/`, `ci/`, `refactor/`, `perf/`, `test/`, `style/` as the prefix.
+2. Open a PR. The **PR title must be a Conventional Commits string** (`feat:`, `fix:`, `chore:`, etc.) — there's a workflow that lints this. The PR title becomes the squash-merge commit on `main`.
+3. Use `gh pr merge --auto --squash` to queue auto-merge once checks pass.
+4. Don't push to `main` directly. Don't try to bypass the PR flow even when "it's just a one-liner."
 
-If you opened a PR and want it merged automatically once checks pass, run `gh pr merge --auto --squash`.
+## Versioning and releases
+
+We use [release-please](https://github.com/googleapis/release-please) for version management.
+
+- **Don't manually edit `version` in `manifest.json` or `package.json`.** release-please does that based on Conventional Commits since the last tag.
+- `feat:` → minor bump; `fix:` and most others → patch bump; `feat!:` / `fix!:` / `BREAKING CHANGE:` footer → major bump.
+- release-please opens a release PR. Merging that PR creates the tag, which triggers `.github/workflows/release.yml` to build the zip and (when secrets are configured) push to the Chrome Web Store.
+
+There is no separate `CHANGELOG.md`. Release notes are auto-generated on the GitHub Releases tab from the merged PRs.
 
 ## Local checks before pushing
 
-- `npm install` once, then `npm test` and `npm run format:check` before every push.
-- `node --check content.js` and `node --check lib.js` if you've edited only those.
-- Reload the unpacked extension on `chrome://extensions` and refresh the TCGplayer tab to verify UI changes.
+```sh
+npm install   # once
+npm test
+npm run format:check
+npm run lint
+npm run typecheck
+```
+
+If any of these fail, CI will fail too. Fix locally first.
+
+For UI changes, also reload the unpacked extension on `chrome://extensions` and verify the affected feature on a real TCGplayer product page and search page.
+
+## Definition of done
+
+A PR is ready to merge when:
+
+- All local and CI checks pass.
+- **Logic changes have unit tests** in `tests/`. No exceptions. Tests live with the pure helpers in `lib.js`.
+- **UI changes update the relevant README screenshot.** If the panel's appearance, the chip layout, or the settings drawer changed, retake the screenshot via `mcp__chrome-devtools__take_screenshot` and replace the file in `docs/images/`. Don't merge a stale screenshot.
+- README is updated if user-facing behavior changed.
+- **Deal-math changes update the README in the same commit** (see below).
 
 ## Deal math must stay in sync between code and README
 
-The "Deal" chip's logic is one of the few things in this extension that's hard to verify by reading the code alone. It depends on:
+The "Deal" chip's logic is one of the few things that's hard to verify by reading code alone. It depends on:
 
-- The listing's price.
-- The listing's stated shipping cost.
-- Whether the listing has the "Free Shipping on Orders Over $X" promo.
-- The per-seller cart subtotal from `mpgateway.tcgplayer.com/v1/cart/<key>/summary`.
-- The global free-shipping threshold (currently $5, hard-coded as `FREE_SHIP_THRESHOLD` in `lib.js`).
-- The page's market price (from the page DOM at `.price-points__upper__price` on product pages, or the per-tile `.product-info__market-price--value` / `.product-card__market-price--value` on search pages).
+- Listing price (from the listing's price element).
+- Listing's stated shipping cost.
+- Whether the listing has a "Free Shipping on Orders Over $X" promo.
+- Per-seller cart subtotal from `mpgateway.tcgplayer.com/v1/cart/<key>/summary`.
+- Global free-shipping threshold (currently $5, hard-coded as `FREE_SHIP_THRESHOLD` in `lib.js`).
+- Page market price (`.price-points__upper__price` on product pages, `.product-info__market-price--value` / `.product-card__market-price--value` on search pages).
 
-Whenever you change the formula (search for `renderDealChipHtml` and `recomputeDealChips` in `content.js`), update the `Price, shipping, and Deal chips` section of `README.md` in the same commit. The README is the user-facing source of truth for what triggers the chip; the code must agree.
-
-If you add new inputs (e.g. tax, kickbacks, multi-listing combinations), document them in the README too. Don't ship a Deal-math change without a matching README update.
+When you change `renderDealChipHtml` or `recomputeDealChips` in `content.js`, update the `Price, shipping, and Deal chips` section of `README.md` in the same commit. The README is the user-facing source of truth.
 
 ## Code layout
 
-- `lib.js`: pure helpers (parsing, classification, chip color/text). No DOM access. Loaded as a content script and also `require()`d by tests. Keep it dependency-free.
-- `content.js`: stateful orchestration (fetches, observers, panel rendering). Wraps in an IIFE; relies on `lib.js`'s top-level functions being in scope. No duplicated helpers — if you need one, add it to `lib.js` and write a unit test.
-- `content.css`: all styling. Use `tcgplus-` prefixed classes only.
-- `manifest.json`: MV3 manifest. `lib.js` must be listed before `content.js` in `content_scripts.js`.
-- `tests/`: Node `--test` unit tests for `lib.js`. Add a test for any new pure helper.
+- **`lib.js`**: pure helpers (parsing, classification, chip color/text). No DOM access, no fetches, no globals beyond function declarations. Loaded as a content script and `require()`'d from tests. Keep it dependency-free.
+- **`content.js`**: stateful orchestration (fetches, MutationObservers, panel rendering). Wraps an IIFE; relies on `lib.js`'s top-level functions being in scope. **Don't duplicate helpers here.** If you need a new helper, add it to `lib.js` and write a test.
+- **`content.css`**: all styling. Use `tcgplus-` prefixed classes only. Don't style raw TCGplayer classes — that breaks when they reorganize.
+- **`manifest.json`**: MV3 manifest. `lib.js` must come before `content.js` in `content_scripts.js`.
+- **`tests/`**: Node `--test` unit tests for `lib.js` only. Pure-helper coverage. Add a test for any new helper.
+
+When the **Options page** lands (planned future work), it'll live in its own HTML/JS file referenced from `manifest.json` `options_page`. Settings UI will move out of the floating panel and into that page.
+
+## TCGplayer DOM survival rules
+
+This extension scrapes a Vue-driven SPA. Their DOM changes without warning.
+
+- **`data-v-XXXXXXXX` attributes are Vue scope hashes, not stable identifiers.** Don't use them in selectors. They change on every TCGplayer build.
+- **Prefer specific class names** like `.listing-item__listing-data__info__price` over generic ones like `.price`. Specific names are more likely to map to component identity.
+- **Get the right selector first.** Fallbacks are acceptable when there's a known ambiguity (e.g. grid view vs. list view), but don't carry 5 fallbacks "just in case." That hides drift.
+- **Never re-render in response to your own DOM mutations.** Functions that write to the DOM should be idempotent (compare before set; skip if equal). Treat your own panel's contents as off-limits to the global `MutationObserver` (filter by `closest('.tcgplus-panel')` and by `tcgplus-` prefixed classes on added/removed nodes).
+
+## Degraded-functionality reporting
+
+When a critical selector or fetch fails, **show a visible warning** in the floating panel saying the extension is partially broken on this page. Don't fail silently with a `console.warn` only — the user can't act on a console message, but they can decide whether to trust the rest of the panel.
+
+The user can't fix selector breakage themselves; they just need to know when to discount what TCGPlus is showing.
+
+Critical paths:
+
+- Market price not found → no chips can be computed.
+- Listing price selector misses → no chips for that listing.
+- Cart summary fetch fails → Deal-math degrades to "without cart context."
+
+## Dependency policy
+
+- **Zero runtime dependencies.** The extension ships `manifest.json`, `lib.js`, `content.js`, `content.css`, plus `LICENSE` and `README.md`. Nothing from `node_modules` is loaded by the extension. Don't add a runtime dep unless it's clearly worth its size and review cost — and that bar is high.
+- **Dev dependencies are fine** when they earn their place: Prettier, ESLint, TypeScript (for `tsc --checkJs` only — no `.ts` files), `@types/*` for the JSDoc layer. Add via `npm install --save-dev`. Dependabot will keep them current.
+
+## CI surface
+
+The `.github/workflows/ci.yml` workflow runs:
+
+- **Validate**: manifest schema sanity, JS syntax, Prettier, ESLint, `tsc --checkJs`.
+- **Test**: `npm test` (Node `--test`).
+
+Both must pass on every PR. CodeQL runs separately as the third required check.
+
+If you change CI, update this section. If you add a required check, also update the branch protection contexts via `gh api repos/peteb4ker/tcgplus/branches/main/protection`.
 
 ## Other things to keep in mind
 
-- `manifest.json` host permissions must list every host the script fetches from. Currently `seller-stores-backend.tcgplayer.com` (vendor info) and `mpgateway.tcgplayer.com` (cart). If you add another fetch target, add the host permission too.
-- All persisted state lives in `localStorage` under the `tcgplus.*` namespace. No accounts, no servers.
-- The extension is plain MV3 with no production build step. The published artifact is just the source files plus `LICENSE` and `README.md`.
+- All persisted state lives in `localStorage` under the `tcgplus.*` namespace. When changing the schema (renaming/removing keys), include a migration in the load path; don't break users with old saved settings.
+- The extension is plain MV3 with no production build step. The published artifact is just the source files.
+- Visual identity stays close to TCGplayer's existing palette so the extension feels native (greens for prices, the same kind of pill chips), with our own tcgplus-prefixed classes carrying the styling.

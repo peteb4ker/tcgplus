@@ -155,8 +155,13 @@
           } else {
             cartSubtotal = 0;
           }
+          clearDegraded('cart');
+        } else {
+          markDegraded('cart', "Couldn't load your cart. The Deal chip will fall back to ignoring cart context.");
         }
-      } catch (_) {}
+      } catch (_) {
+        markDegraded('cart', "Couldn't load your cart. The Deal chip will fall back to ignoring cart context.");
+      }
       renderCartBadge();
       recomputeDealChips();
       cartFetchPromise = null;
@@ -247,6 +252,7 @@
       console.warn('[TCG+] could not find listing price element; share this DOM:', item.outerHTML.slice(0, 1500));
       listingPriceWarned = true;
     }
+    markDegraded('listing-price', "Couldn't find a listing's price. Chips for that listing won't render.");
     return null;
   }
 
@@ -337,11 +343,25 @@
   let panel;
   let settingsOpen = false;
 
+  /** @type {Map<string, string>} */
+  const degradations = new Map();
+  function markDegraded(key, message) {
+    if (degradations.get(key) === message) return;
+    degradations.set(key, message);
+    console.warn(`[TCG+] degraded: ${message}`);
+    renderPanel();
+  }
+  function clearDegraded(key) {
+    if (!degradations.has(key)) return;
+    degradations.delete(key);
+    renderPanel();
+  }
+
   function computeStats() {
     const counts = { home: 0, nearby: 0, other: 0 };
     document.querySelectorAll('.listing-item[data-tcgplus-tier]').forEach((el) => {
-      const t = el.dataset.tcgplusTier;
-      if (t in counts) counts[t]++;
+      const t = /** @type {HTMLElement} */ (el).dataset.tcgplusTier;
+      if (t && t in counts) counts[/** @type {keyof typeof counts} */ (t)]++;
     });
     return counts;
   }
@@ -359,7 +379,8 @@
   applyFilter();
 
   function reclassifyAll() {
-    document.querySelectorAll('.listing-item[data-tcgplus="done"]').forEach((el) => {
+    document.querySelectorAll('.listing-item[data-tcgplus="done"]').forEach((rawEl) => {
+      const el = /** @type {HTMLElement} */ (rawEl);
       const stateCode = el.dataset.tcgplusState || '';
       const tier = classifyState(stateCode, homeState, nearbyStates);
       const oldTier = el.dataset.tcgplusTier;
@@ -415,7 +436,12 @@
     item.dataset.tcgplus = 'done';
 
     const market = findMarketPrice(item);
-    if (market) addPriceChips(item, market);
+    if (market) {
+      clearDegraded('market-price');
+      addPriceChips(item, market);
+    } else {
+      markDegraded('market-price', "Couldn't find this page's market price. Price-vs-market chips won't render.");
+    }
 
     renderPanel();
   }
@@ -466,20 +492,22 @@
       panel = document.createElement('aside');
       panel.className = 'tcgplus-panel';
       panel.addEventListener('click', (e) => {
-        if (e.target.closest('.tcgplus-settings')) return;
-        if (e.target.closest('.tcgplus-settings-toggle')) {
+        const target = /** @type {Element | null} */ (e.target);
+        if (!target) return;
+        if (target.closest('.tcgplus-settings')) return;
+        if (target.closest('.tcgplus-settings-toggle')) {
           settingsOpen = !settingsOpen;
           renderPanel();
           return;
         }
-        const row = e.target.closest('.tcgplus-panel-row');
+        const row = /** @type {HTMLElement | null} */ (target.closest('.tcgplus-panel-row'));
         if (!row || row.classList.contains('tcgplus-panel-row-disabled')) return;
         const tier = row.dataset.tier;
         setActiveFilter(activeFilter === tier ? null : tier);
         applyFilter();
       });
       panel.addEventListener('change', (e) => {
-        const t = e.target;
+        const t = /** @type {HTMLInputElement & HTMLSelectElement} */ (e.target);
         if (t.id === 'tcgplus-home-select') {
           setHomeState(t.value);
           renderPanel();
@@ -519,6 +547,7 @@
       document.body.appendChild(panel);
     }
     const counts = computeStats();
+    /** @type {Tier[]} */
     const tiers = ['home', 'nearby', 'other'];
     const rowsHtml = tiers
       .map((tier) => {
@@ -531,8 +560,12 @@
       })
       .join('');
     const gear = `<button type="button" class="tcgplus-settings-toggle" aria-label="Settings" aria-expanded="${settingsOpen}">⚙</button>`;
+    const warningsHtml =
+      degradations.size > 0
+        ? `<div class="tcgplus-panel-warnings">${[...degradations.values()].map((m) => `<div class="tcgplus-panel-warning">${m}</div>`).join('')}</div>`
+        : '';
     const settingsHtml = settingsOpen ? buildSettingsHtml() : '';
-    panel.innerHTML = `<div class="tcgplus-panel-title">Vendor Locations${gear}</div>${rowsHtml}${settingsHtml}`;
+    panel.innerHTML = `<div class="tcgplus-panel-title">Vendor Locations${gear}</div>${warningsHtml}${rowsHtml}${settingsHtml}`;
   }
 
   function scan() {
@@ -548,7 +581,8 @@
   const observer = new MutationObserver((mutations) => {
     if (scanTimer) return;
     const externalChange = mutations.some((m) => {
-      if (m.target && m.target.closest && m.target.closest('.tcgplus-panel')) return false;
+      const target = /** @type {Element | null} */ (m.target);
+      if (target && target.closest && target.closest('.tcgplus-panel')) return false;
       const added = m.addedNodes;
       const removed = m.removedNodes;
       if (!added.length && !removed.length) return false;

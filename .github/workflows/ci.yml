@@ -44,6 +44,12 @@ jobs:
       - name: Check formatting (Prettier)
         run: npm run format:check
 
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Type check (tsc --checkJs)
+        run: npm run typecheck
+
   test:
     name: Test
     runs-on: ubuntu-latest
