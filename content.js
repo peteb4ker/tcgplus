@@ -424,7 +424,7 @@
         const target = /** @type {Element | null} */ (e.target);
         if (!target) return;
         if (target.closest('.tcgplus-settings-toggle')) {
-          chrome.runtime.openOptionsPage();
+          chrome.runtime.sendMessage({ type: 'tcgplus.openOptionsPage' });
           return;
         }
         const row = /** @type {HTMLElement | null} */ (target.closest('.tcgplus-panel-row'));

@@ -31,6 +31,15 @@ module.exports = [
     },
   },
   {
+    files: ['background.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: {
+        chrome: 'readonly',
+      },
+    },
+  },
+  {
     files: ['lib.js', 'storage.js'],
     languageOptions: {
       globals: {
