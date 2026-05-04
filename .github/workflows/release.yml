@@ -11,6 +11,14 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      # Hoist the secrets to job-level env so the per-step `if:` can check
+      # them without referencing `secrets.*` directly (GitHub Actions doesn't
+      # allow that in conditionals).
+      CWS_EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
+      CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+      CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+      CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
     steps:
       - uses: actions/checkout@v6
 
@@ -26,3 +34,23 @@ jobs:
         with:
           files: ${{ env.ZIP }}
           generate_release_notes: true
+
+      - name: Publish to Chrome Web Store
+        if: env.CWS_EXTENSION_ID != ''
+        env:
+          # The chrome-webstore-upload-cli reads these env-var names by
+          # default, so we re-export under the names it expects.
+          EXTENSION_ID: ${{ env.CWS_EXTENSION_ID }}
+          CLIENT_ID: ${{ env.CWS_CLIENT_ID }}
+          CLIENT_SECRET: ${{ env.CWS_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ env.CWS_REFRESH_TOKEN }}
+        run: |
+          npx -y chrome-webstore-upload-cli@3 upload \
+            --source "$ZIP" \
+            --auto-publish
+
+      - name: Skip Web Store publish (secrets not configured)
+        if: env.CWS_EXTENSION_ID == ''
+        run: |
+          echo "::notice::CWS_EXTENSION_ID not set; skipping Chrome Web Store publish step."
+          echo "Add CWS_EXTENSION_ID, CWS_CLIENT_ID, CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN to repo Actions secrets to enable auto-publish."

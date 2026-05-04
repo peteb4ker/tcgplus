@@ -61,9 +61,20 @@ We use [release-please](https://github.com/googleapis/release-please) for versio
 
 - **Don't manually edit `version` in `manifest.json` or `package.json`.** release-please does that based on Conventional Commits since the last tag.
 - `feat:` → minor bump; `fix:` and most others → patch bump; `feat!:` / `fix!:` / `BREAKING CHANGE:` footer → major bump.
-- release-please opens a release PR. Merging that PR creates the tag, which triggers `.github/workflows/release.yml` to build the zip and (when secrets are configured) push to the Chrome Web Store.
+- release-please opens a release PR. Merging that PR creates the tag, which triggers `.github/workflows/release.yml` to build the zip, attach it to a GitHub Release, and (when the four `CWS_*` secrets are present) auto-publish to the Chrome Web Store.
 
 There is no separate `CHANGELOG.md`. Release notes are auto-generated on the GitHub Releases tab from the merged PRs.
+
+### Chrome Web Store secrets
+
+`release.yml` looks for these four repository secrets and skips the publish step if any is missing:
+
+- `CWS_EXTENSION_ID` — the published extension's ID.
+- `CWS_CLIENT_ID` — Google OAuth client ID for the publisher project.
+- `CWS_CLIENT_SECRET` — paired secret for the OAuth client.
+- `CWS_REFRESH_TOKEN` — minted once via `npx chrome-webstore-upload-keys` against the developer-account login.
+
+Setup is documented in PR #19 / [`docs/store/listing-description.md`](docs/store/listing-description.md). The first publish must be done manually through the developer dashboard so the extension exists in the store; from then on, every `v*` tag publishes automatically.
 
 ## Local checks before pushing
 
