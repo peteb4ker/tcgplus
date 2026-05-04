@@ -24,9 +24,18 @@ jobs:
 
       - name: Build extension zip
         run: |
+          set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
           ZIP="tcgplus-${VERSION}.zip"
-          zip -r "$ZIP" manifest.json lib.js storage.js content.js content.css background.js icons options README.md LICENSE
+          # Bundle only the files the extension actually loads at runtime.
+          # icons/icon.svg is build-time-only (used by tools/render-promo-tile.js)
+          # and would just bloat the zip + draw reviewer questions.
+          zip -r "$ZIP" \
+            manifest.json \
+            lib.js storage.js content.js content.css background.js \
+            icons options \
+            README.md LICENSE \
+            -x "icons/icon.svg"
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
@@ -45,6 +54,7 @@ jobs:
           CLIENT_SECRET: ${{ env.CWS_CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ env.CWS_REFRESH_TOKEN }}
         run: |
+          set -euo pipefail
           npx -y chrome-webstore-upload-cli@3 upload \
             --source "$ZIP" \
             --auto-publish
@@ -52,5 +62,6 @@ jobs:
       - name: Skip Web Store publish (secrets not configured)
         if: env.CWS_EXTENSION_ID == ''
         run: |
+          set -euo pipefail
           echo "::notice::CWS_EXTENSION_ID not set; skipping Chrome Web Store publish step."
           echo "Add CWS_EXTENSION_ID, CWS_CLIENT_ID, CWS_CLIENT_SECRET, CWS_REFRESH_TOKEN to repo Actions secrets to enable auto-publish."
