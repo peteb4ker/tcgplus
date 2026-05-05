@@ -57,11 +57,18 @@ Keep issue titles imperative and short ("Move settings to a singleton options pa
 
 ## Versioning and releases
 
-We use [release-please](https://github.com/googleapis/release-please) for version management.
+Tag-driven, manual version bumps. No release-please, no draft release PR.
 
-- **Don't manually edit `version` in `manifest.json` or `package.json`.** release-please does that based on Conventional Commits since the last tag.
-- `feat:` → minor bump; `fix:` and most others → patch bump; `feat!:` / `fix!:` / `BREAKING CHANGE:` footer → major bump.
-- release-please opens a release PR. Merging that PR creates the tag, which triggers `.github/workflows/release.yml` to build the zip, attach it to a GitHub Release, and (when the four `CWS_*` secrets are present) auto-publish to the Chrome Web Store.
+When you're ready to ship:
+
+1. Decide on the next semver based on what's landed since the last tag. Roughly: `feat:` → minor, `fix:`/`chore:`/etc → patch, `feat!:` or `BREAKING CHANGE:` → major. Look at `git log $(git describe --tags --abbrev=0)..HEAD --oneline` to see what's queued.
+2. On a `chore/release-vX.Y.Z` branch, run `npm run release -- X.Y.Z`. The script bumps both `manifest.json` and `package.json` in lockstep. Open a PR titled `chore: release vX.Y.Z` and merge it.
+3. After it's on main, tag and push:
+   ```sh
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   ```
+4. `.github/workflows/release.yml` fires on the tag. It builds the zip, creates a GitHub Release with auto-generated notes from the merged PR titles, and (when the four `CWS_*` secrets are present) pushes the zip to the Chrome Web Store.
 
 There is no separate `CHANGELOG.md`. Release notes are auto-generated on the GitHub Releases tab from the merged PRs.
 
