@@ -171,6 +171,13 @@ All three plus CodeQL must pass on every PR.
 
 If you change CI, update this section. If you add a required check, also update the branch protection contexts via `gh api repos/peteb4ker/tcgplus/branches/main/protection`.
 
+### When you add a workflow
+
+Two follow-ups, every time:
+
+1. **Add a status badge to the README.** The pattern is `https://github.com/peteb4ker/tcgplus/actions/workflows/<file>.yml/badge.svg?branch=main`. Without a badge the workflow's failures are silent until someone opens the Actions tab.
+2. **Wire the workflow into `.github/workflows/main-health.yml`.** That workflow listens for `workflow_run.completed` from a fixed list of workflows and auto-files a tracking issue (label `main-health`) when one fails on `main`. Add the new workflow's `name:` to that list. Same applies if you rename a workflow.
+
 ## Other things to keep in mind
 
 - All persisted state lives in `localStorage` under the `tcgplus.*` namespace. When changing the schema (renaming/removing keys), include a migration in the load path; don't break users with old saved settings.

@@ -1,5 +1,9 @@
 # TCGPlus
 
+[![CI](https://github.com/peteb4ker/tcgplus/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/peteb4ker/tcgplus/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/peteb4ker/tcgplus/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/peteb4ker/tcgplus/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/peteb4ker/tcgplus?label=release&color=05772d)](https://github.com/peteb4ker/tcgplus/releases/latest)
+
 TCGPlus is a Chrome extension for [TCGplayer](https://www.tcgplayer.com). It reduces friction in the navigation experience so you can search and buy faster.
 
 ![TCGPlus on a TCGplayer product page](docs/images/hero.png)
