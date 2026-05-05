@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Search · single-seller fixture</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 24px;
+      }
+      .shop-by-seller-message {
+        background: #eef5ff;
+        padding: 12px 16px;
+        border: 1px solid #cdd9e6;
+        border-radius: 6px;
+        margin-bottom: 16px;
+      }
+      .listing-item {
+        border: 1px solid #ddd;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .listing-item__listing-data__info__price {
+        color: #05772d;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <button class="mp-header__content__cart-count" type="button" aria-label="Cart">
+        <svg class="svg-inline--fa fa-cart-shopping" width="16" height="16"><title>cart</title></svg>
+        <span class="tcg-badge mp-header__content__cart-count__chip">0</span>
+      </button>
+    </header>
+
+    <div class="shop-by-seller-message">
+      <span> You are shopping from: &nbsp; <strong>Test Seller</strong></span>
+      <button class="shop-by-seller-button" data-testid="btnLeaveSeller">
+        <span class="tcg-standard-button__content">Leave</span>
+      </button>
+    </div>
+
+    <section class="price-points"><span class="price-points__upper__price">$10.00</span></section>
+
+    <section class="listings">
+      <article class="listing-item" data-testid="listing-item--0">
+        <div class="listing-item__listing-data">
+          <div class="listing-item__listing-data__seller">
+            <div class="seller-info">
+              <a class="seller-info__name" href="/sellers/Test-Seller/aaaaaaaa">Test Seller</a>
+              <div class="seller-info__content"></div>
+            </div>
+          </div>
+          <div class="listing-item__listing-data__info">
+            <h3 class="listing-item__listing-data__info__condition"><a href="#">Near Mint</a></h3>
+            <div class="listing-item__listing-data__info__price">$8.00</div>
+            <span> Shipping: <a href="#">Included</a></span>
+          </div>
+        </div>
+      </article>
+
+      <article class="listing-item" data-testid="listing-item--1">
+        <div class="listing-item__listing-data">
+          <div class="listing-item__listing-data__seller">
+            <div class="seller-info">
+              <a class="seller-info__name" href="/sellers/Test-Seller/aaaaaaaa">Test Seller</a>
+              <div class="seller-info__content"></div>
+            </div>
+          </div>
+          <div class="listing-item__listing-data__info">
+            <h3 class="listing-item__listing-data__info__condition"><a href="#">Near Mint</a></h3>
+            <div class="listing-item__listing-data__info__price">$11.00</div>
+            <span>+ $1.31 Shipping</span>
+          </div>
+        </div>
+      </article>
+    </section>
+  </body>
+</html>

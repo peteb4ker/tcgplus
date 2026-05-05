@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Search · grid view fixture</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 24px;
+      }
+      .search-result {
+        display: inline-block;
+        margin: 8px;
+        vertical-align: top;
+      }
+      .product-card__product {
+        border: 1px solid #ddd;
+        padding: 12px;
+        width: 200px;
+      }
+      .product-card__market-price--value {
+        color: #05772d;
+        font-weight: 600;
+      }
+      .inventory__price-with-shipping {
+        color: #05772d;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <button class="mp-header__content__cart-count" type="button" aria-label="Cart">
+        <svg class="svg-inline--fa fa-cart-shopping" width="16" height="16"><title>cart</title></svg>
+        <span class="tcg-badge mp-header__content__cart-count__chip">0</span>
+      </button>
+    </header>
+
+    <section class="results">
+      <div class="search-result" data-testid="search-result--0">
+        <a href="/product/1/test?seller=aaaaaaaa&page=1">
+          <section class="product-card__product product-card__product-variant-a">
+            <h4 class="product-card__set-name"><div class="product-card__set-name__variant">Test Set</div></h4>
+            <span class="product-card__title">Card A</span>
+            <div class="inventory">
+              <div class="inventory__container">
+                <span class="inventory__listing-count"><span>1 listing</span> from </span>
+                <span class="inventory__price"><span class="inventory__price-with-shipping">$8.00</span></span>
+              </div>
+            </div>
+            <section class="product-card__market-price">
+              <section>
+                <span>Market Price:</span>
+                <span class="product-card__market-price--value">$10.00</span>
+              </section>
+            </section>
+          </section>
+        </a>
+      </div>
+
+      <div class="search-result" data-testid="search-result--1">
+        <a href="/product/2/test?seller=bbbbbbbb&page=1">
+          <section class="product-card__product product-card__product-variant-a">
+            <h4 class="product-card__set-name"><div class="product-card__set-name__variant">Test Set</div></h4>
+            <span class="product-card__title">Card B</span>
+            <div class="inventory">
+              <div class="inventory__container">
+                <span class="inventory__listing-count"><span>1 listing</span> from </span>
+                <span class="inventory__price"><span class="inventory__price-with-shipping">$11.00</span></span>
+              </div>
+            </div>
+            <section class="product-card__market-price">
+              <section>
+                <span>Market Price:</span>
+                <span class="product-card__market-price--value">$10.00</span>
+              </section>
+            </section>
+          </section>
+        </a>
+      </div>
+
+      <div class="search-result" data-testid="search-result--2">
+        <a href="/product/3/test?seller=cccccccc&page=1">
+          <section class="product-card__product product-card__product-variant-a">
+            <h4 class="product-card__set-name"><div class="product-card__set-name__variant">Test Set</div></h4>
+            <span class="product-card__title">Card C</span>
+            <div class="inventory">
+              <div class="inventory__container">
+                <span class="inventory__listing-count"><span>1 listing</span> from </span>
+                <span class="inventory__price"><span class="inventory__price-with-shipping">$15.00</span></span>
+              </div>
+            </div>
+            <section class="product-card__market-price">
+              <section>
+                <span>Market Price:</span>
+                <span class="product-card__market-price--value">$10.00</span>
+              </section>
+            </section>
+          </section>
+        </a>
+      </div>
+    </section>
+  </body>
+</html>

@@ -12,6 +12,8 @@ TCGPlus is a Chrome extension for [TCGplayer](https://www.tcgplayer.com). It red
 
 TCGPlus runs on TCGplayer product pages and on search pages (the views you use to browse a set or a vendor's listings). All of the chips, badges, filters, and panel controls below work the same in both places.
 
+In **grid view** on the search page, where each tile shows one product without a separate shipping line, only the price-vs-market chip appears. List view continues to show the full chip row (delta, shipping, Deal). When you've filtered to a single seller (the "You are shopping from" banner is visible), the seller's location moves up into the banner and the per-listing location badges are suppressed since they'd all be identical.
+
 ### Vendor location badges
 
 Every listing gets a city/state badge under the seller's rating, color-coded by where they ship from:
