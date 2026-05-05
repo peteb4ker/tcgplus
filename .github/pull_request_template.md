@@ -9,6 +9,7 @@
 - [ ] `npm test` passes
 - [ ] `npm run format:check` passes
 - [ ] Loaded the unpacked extension in Chrome and exercised the affected feature(s)
+- [ ] If this PR adds or renames a GitHub Actions workflow: README badge added and `main-health.yml` updated
 
 ## Screenshots
 

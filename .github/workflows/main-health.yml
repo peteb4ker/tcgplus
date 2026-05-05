@@ -1,0 +1,87 @@
+name: Main health
+
+# Listens for the workflows that run on `main` and surfaces failures as
+# GitHub issues. The badges in README give a passive at-a-glance signal;
+# this workflow is the active push notification when something goes red
+# without anyone watching.
+
+on:
+  workflow_run:
+    workflows: ['CI', 'CodeQL', 'Release']
+    types: [completed]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  notify:
+    if: github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const wf = context.payload.workflow_run;
+            const conclusion = wf.conclusion;
+            const name = wf.name;
+            const url = wf.html_url;
+            const sha = wf.head_sha;
+            const title = `Main: ${name} is failing`;
+            const label = 'main-health';
+
+            // Find any existing open issue tracking this workflow's health.
+            const existing = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+              per_page: 100,
+            });
+            const match = existing.find((i) => i.title === title);
+
+            if (conclusion === 'failure' || conclusion === 'timed_out' || conclusion === 'startup_failure') {
+              const body = [
+                `Workflow [\`${name}\`](${url}) failed on \`main\`.`,
+                '',
+                `- Run: ${url}`,
+                `- Commit: \`${sha}\``,
+                `- Conclusion: \`${conclusion}\``,
+                '',
+                'This issue auto-closes when the workflow returns to success on `main`.',
+              ].join('\n');
+
+              if (match) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: match.number,
+                  body,
+                });
+                core.notice(`Updated existing main-health issue #${match.number} for ${name}.`);
+              } else {
+                const created = await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title,
+                  body,
+                  labels: [label],
+                });
+                core.notice(`Opened main-health issue #${created.data.number} for ${name}.`);
+              }
+            } else if (conclusion === 'success' && match) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                body: `Auto-closing: \`${name}\` is green again on \`main\`. Latest run: ${url}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                state: 'closed',
+                state_reason: 'completed',
+              });
+              core.notice(`Closed main-health issue #${match.number} (${name} recovered).`);
+            }
