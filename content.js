@@ -227,6 +227,19 @@
     return null;
   }
 
+  /**
+   * Build the HTML string for a single price-vs-market chip.
+   * Shared between the list-view tile renderer (where it's the middle of
+   * three sibling chips) and the grid-view tile renderer (where it's the
+   * only chip).
+   */
+  function buildDeltaChipHtml(price, market) {
+    const diff = price - market;
+    const pct = (diff / market) * 100;
+    const colors = chipColorForPct(pct);
+    return `<span class="tcgplus-price-chip" style="background:${colors.bg};color:${colors.fg};" title="vs market $${market.toFixed(2)}">${formatAbsDiff(diff)} (${formatPctDiff(pct)})</span>`;
+  }
+
   function addPriceChips(item, market) {
     if (item.dataset.tcgplusChips === '1') return;
     const priceEl = findListingPriceEl(item);
@@ -234,10 +247,7 @@
     const price = parsePrice(priceEl.textContent);
     if (!price) return;
 
-    const diff = price - market;
-    const pct = (diff / market) * 100;
-    const colors = chipColorForPct(pct);
-    const deltaChipHtml = `<span class="tcgplus-price-chip" style="background:${colors.bg};color:${colors.fg};" title="vs market $${market.toFixed(2)}">${formatAbsDiff(diff)} (${formatPctDiff(pct)})</span>`;
+    const deltaChipHtml = buildDeltaChipHtml(price, market);
 
     const wrap = document.createElement('span');
     wrap.className = 'tcgplus-price-chips';
@@ -311,6 +321,108 @@
     });
   }
 
+  // -- Grid-view product cards -------------------------------------------
+  // The search page in grid mode renders `.product-card__product` tiles
+  // without a `.listing-item`. Each tile shows one product with its cheapest
+  // listing price and a per-tile market price; there's no per-tile shipping
+  // info, so only a delta chip applies (no shipping, no Deal).
+
+  function extractSellerKeyFromCard(card) {
+    const anchor = card.closest('a') || card.querySelector('a');
+    const href = anchor && anchor.getAttribute('href');
+    if (!href) return '';
+    const u = new URL(href, location.origin);
+    return u.searchParams.get('seller') || '';
+  }
+
+  function findCardMarketPrice(card) {
+    const el = card.querySelector('.product-card__market-price--value');
+    return el ? parsePrice(el.textContent) : null;
+  }
+
+  function findCardPriceEl(card) {
+    return card.querySelector('.inventory__price-with-shipping');
+  }
+
+  async function annotateProductCard(card) {
+    if (card.dataset.tcgplus) return;
+    card.dataset.tcgplus = 'pending';
+
+    const sellerKey = extractSellerKeyFromCard(card);
+    if (sellerKey) {
+      // Best-effort tier classification for consistency with the panel; we
+      // don't render a per-tile location badge in single-seller mode and
+      // the grid tile has no good place to put one anyway.
+      const info = await fetchSeller(sellerKey);
+      if (info) {
+        const stateCode = stateCodeFromInfo(info);
+        const tier = classifyState(stateCode, homeState, nearbyStates);
+        card.dataset.tcgplusSellerKey = sellerKey;
+        card.dataset.tcgplusState = stateCode;
+        card.dataset.tcgplusTier = tier;
+      }
+    }
+    card.dataset.tcgplus = 'done';
+
+    const market = findCardMarketPrice(card);
+    const priceEl = findCardPriceEl(card);
+    if (!market || !priceEl) {
+      if (!market) {
+        markDegraded('market-price', "Couldn't find this page's market price. Price-vs-market chips won't render.");
+      }
+      return;
+    }
+    clearDegraded('market-price');
+    const price = parsePrice(priceEl.textContent);
+    if (!price) return;
+
+    const wrap = document.createElement('span');
+    wrap.className = 'tcgplus-price-chips tcgplus-price-chips--card';
+    wrap.innerHTML = buildDeltaChipHtml(price, market);
+    priceEl.appendChild(wrap);
+    card.dataset.tcgplusChips = '1';
+  }
+
+  // -- Shop-by-seller banner ---------------------------------------------
+  // When the search page is filtered to a single seller, TCGplayer renders a
+  // banner with the store name. Surface the seller's location once in that
+  // banner so the per-tile suppression doesn't lose information.
+
+  async function enhanceShopBySellerBanner() {
+    const banner = /** @type {HTMLElement | null} */ (document.querySelector('.shop-by-seller-message'));
+    if (!banner || banner.dataset.tcgplus) return;
+    banner.dataset.tcgplus = 'pending';
+
+    const url = new URL(location.href);
+    const sellerKey = url.searchParams.get('seller') || '';
+    if (!sellerKey) {
+      banner.dataset.tcgplus = 'no-key';
+      return;
+    }
+    const info = await fetchSeller(sellerKey);
+    if (!info) {
+      banner.dataset.tcgplus = 'error';
+      return;
+    }
+    const stateCode = stateCodeFromInfo(info);
+    const tier = classifyState(stateCode, homeState, nearbyStates);
+    const text = formatLocation(info);
+    const span = banner.querySelector('span') || banner;
+    if (!span.querySelector('.tcgplus-loc')) {
+      const badge = document.createElement('span');
+      badge.className = `tcgplus-loc tcgplus-${tier}`;
+      badge.style.marginLeft = '8px';
+      badge.textContent = text;
+      const strong = span.querySelector('strong');
+      if (strong && strong.parentNode === span) {
+        strong.insertAdjacentElement('afterend', badge);
+      } else {
+        span.appendChild(badge);
+      }
+    }
+    banner.dataset.tcgplus = 'done';
+  }
+
   // -- Panel --------------------------------------------------------------
   let panel;
 
@@ -367,6 +479,10 @@
     renderPanel();
   }
 
+  function isSingleSellerMode() {
+    return !!document.querySelector('.shop-by-seller-message');
+  }
+
   async function annotate(item) {
     if (item.dataset.tcgplus) return;
     item.dataset.tcgplus = 'pending';
@@ -387,19 +503,20 @@
     item.dataset.tcgplusSellerKey = key;
     const stateCode = stateCodeFromInfo(info);
     const tier = classifyState(stateCode, homeState, nearbyStates);
-    const text = formatLocation(info);
 
-    const row = document.createElement('div');
-    row.className = 'tcgplus-loc-row';
-
-    const badge = document.createElement('span');
-    badge.className = `tcgplus-loc tcgplus-${tier}`;
-    badge.textContent = text;
-
-    row.appendChild(badge);
-
-    const content = item.querySelector('.seller-info__content');
-    (content || link.parentElement).appendChild(row);
+    // In single-seller mode the "You are shopping from: <store>" banner already
+    // surfaces the seller's location; per-tile badges are redundant noise.
+    if (!isSingleSellerMode()) {
+      const text = formatLocation(info);
+      const row = document.createElement('div');
+      row.className = 'tcgplus-loc-row';
+      const badge = document.createElement('span');
+      badge.className = `tcgplus-loc tcgplus-${tier}`;
+      badge.textContent = text;
+      row.appendChild(badge);
+      const content = item.querySelector('.seller-info__content');
+      (content || link.parentElement).appendChild(row);
+    }
     item.classList.add(`tcgplus-row-${tier}`);
     item.dataset.tcgplusState = stateCode;
     item.dataset.tcgplusTier = tier;
@@ -460,6 +577,10 @@
     document.querySelectorAll('.listing-item:not([data-tcgplus])').forEach((el) => {
       annotate(el);
     });
+    document.querySelectorAll('.product-card__product:not([data-tcgplus])').forEach((el) => {
+      annotateProductCard(el);
+    });
+    enhanceShopBySellerBanner();
     backfillPriceChips();
     watchCartCount();
     renderCartBadge();
