@@ -172,7 +172,6 @@
     '.listing-item__shipping',
     '[data-testid="shipping"]',
   ];
-  let marketPrice = null;
   let listingPriceWarned = false;
 
   function hasFreeShippingPromo(item) {
@@ -207,11 +206,11 @@
         if (v) return v;
       }
     }
-    if (marketPrice != null) return marketPrice;
+    // Don't cache: TCGplayer is an SPA and the same content-script instance
+    // sees multiple products as the user navigates. A cached value would
+    // leak the previous product's market price into chips on the new one.
     const el = document.querySelector(MARKET_PRICE_SELECTOR);
-    const v = el && parsePrice(el.textContent);
-    if (v) marketPrice = v;
-    return marketPrice;
+    return el ? parsePrice(el.textContent) : null;
   }
 
   function findListingPriceEl(item) {
