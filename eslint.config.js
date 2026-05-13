@@ -77,6 +77,7 @@ module.exports = [
         formatPctDiff: 'readonly',
         tierLabel: 'readonly',
         isOurNode: 'readonly',
+        createDegradationTracker: 'readonly',
         // Provided by storage.js loaded between lib.js and content.js.
         STORAGE_KEYS: 'readonly',
         ALL_STORAGE_KEYS: 'readonly',

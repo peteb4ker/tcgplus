@@ -425,19 +425,17 @@
   // -- Panel --------------------------------------------------------------
   let panel;
 
-  /** @type {Map<string, string>} */
-  const degradations = new Map();
-  function markDegraded(key, message) {
-    if (degradations.get(key) === message) return;
-    degradations.set(key, message);
-    console.warn(`[TCG+] degraded: ${message}`);
-    renderPanel();
-  }
-  function clearDegraded(key) {
-    if (!degradations.has(key)) return;
-    degradations.delete(key);
-    renderPanel();
-  }
+  // Many "degraded" states are actually transient during normal page hydration:
+  // the listing-item DOM lands before the market-price element, the cart fetch
+  // races with another listings batch, etc. The tracker defers each mark so a
+  // quick clear cancels it silently — only states that persist past the
+  // debounce window surface in the console + panel.
+  const degradationTracker = createDegradationTracker({
+    onChange: () => renderPanel(),
+  });
+  const degradations = degradationTracker.entries;
+  const markDegraded = degradationTracker.mark;
+  const clearDegraded = degradationTracker.clear;
 
   function computeStats() {
     const counts = { home: 0, nearby: 0, other: 0 };
