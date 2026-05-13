@@ -99,6 +99,24 @@ If any of these fail, CI will fail too. Fix locally first.
 
 For UI changes, also reload the unpacked extension on `chrome://extensions` and verify the affected feature on a real TCGplayer product page and search page.
 
+## Local dev build (running alongside the production extension)
+
+Keep the production extension installed (so uninstall events don't show up in CWS analytics) and run the dev build side-by-side:
+
+```sh
+npm run dev:build       # writes .dev/ with a dev-flavoured manifest + symlinks
+```
+
+Then in Chrome:
+
+1. `chrome://extensions` → enable Developer mode (top right).
+2. **Load unpacked** → pick the `.dev/` directory.
+3. Toggle the production "TCGPlus" extension off while testing the dev build (and back on when you're done).
+
+The two extensions get different IDs (CWS assigned vs. Chrome-generated) and are shown as **TCGPlus** and **TCGPlus (dev)** so it's obvious which one is which. Storage is isolated per extension ID, so dev settings don't leak into production. Runtime files inside `.dev/` are symlinks to the repo, so code edits are live — just reload the unpacked extension in `chrome://extensions`. Rerun `npm run dev:build` only when you add a new top-level file Chrome needs to see.
+
+`.dev/` is gitignored.
+
 ## Definition of done
 
 A PR is ready to merge when:

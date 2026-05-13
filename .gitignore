@@ -3,6 +3,7 @@
 .idea/
 .vscode/
 dist/
+.dev/
 *.zip
 node_modules/
 test-results/
