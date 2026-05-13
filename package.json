@@ -10,8 +10,10 @@
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:e2e",
     "release": "node tools/bump-version.js",
-    "dev:build": "node tools/build-dev.js"
+    "dev:build": "node tools/build-dev.js",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
@@ -19,6 +21,7 @@
     "@types/node": "25.6.2",
     "eslint": "10.3.0",
     "globals": "17.6.0",
+    "husky": "^9.1.7",
     "prettier": "3.8.3",
     "typescript": "6.0.3"
   }
