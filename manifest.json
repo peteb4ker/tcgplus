@@ -25,7 +25,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.tcgplayer.com/product/*", "https://www.tcgplayer.com/search/*"],
+      "matches": ["https://www.tcgplayer.com/*"],
       "js": ["lib.js", "storage.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
