@@ -533,6 +533,25 @@
   }
 
   function renderPanel() {
+    // Drop a stale panel reference if the SPA replaced the body subtree
+    // out from under us. A new panel will be created below if appropriate.
+    if (panel && !document.body.contains(panel)) {
+      panel = null;
+    }
+
+    // The panel only makes sense on pages that have per-seller listings to
+    // summarise. On the TCGplayer homepage, search-grid view, /cart, /content
+    // articles, etc. there are no `.listing-item` elements so the panel
+    // would just show a row of zeroes (and any cart-fetch warning would lack
+    // context). Tear it down if it's already up.
+    if (!document.querySelector('.listing-item')) {
+      if (panel) {
+        panel.remove();
+        panel = null;
+      }
+      return;
+    }
+
     if (!panel) {
       panel = document.createElement('aside');
       panel.className = 'tcgplus-panel';
@@ -583,6 +602,10 @@
     backfillPriceChips();
     watchCartCount();
     renderCartBadge();
+    // Re-render so the panel disappears on SPA navigation away from a
+    // listings page (annotate() only triggers a re-render when adding new
+    // listings; nothing else notices when listings are removed).
+    renderPanel();
   }
 
   let scanTimer = null;
