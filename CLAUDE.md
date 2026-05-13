@@ -113,7 +113,9 @@ Then in Chrome:
 2. **Load unpacked** → pick the `.dev/` directory.
 3. Toggle the production "TCGPlus" extension off while testing the dev build (and back on when you're done).
 
-The two extensions get different IDs (CWS assigned vs. Chrome-generated) and are shown as **TCGPlus** and **TCGPlus (dev)** so it's obvious which one is which. Storage is isolated per extension ID, so dev settings don't leak into production. Runtime files inside `.dev/` are symlinks to the repo, so code edits are live — just reload the unpacked extension in `chrome://extensions`. Rerun `npm run dev:build` only when you add a new top-level file Chrome needs to see.
+The two extensions get different IDs (CWS assigned vs. Chrome-generated) and are shown as **TCGPlus** and **TCGPlus (dev)** so it's obvious which one is which. Storage is isolated per extension ID, so dev settings don't leak into production.
+
+Files inside `.dev/` are copies (not symlinks): Chrome on macOS silently refuses to read content-script JS through symlinks — the extension would load without errors but its scripts wouldn't fire. After editing source files, rerun `npm run dev:build` and click the reload icon on the unpacked extension in `chrome://extensions`.
 
 `.dev/` is gitignored.
 
