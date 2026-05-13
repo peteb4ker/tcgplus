@@ -119,6 +119,16 @@ Files inside `.dev/` are copies (not symlinks): Chrome on macOS silently refuses
 
 `.dev/` is gitignored.
 
+### After every PR you queued auto-merges
+
+Once a PR you've been watching lands on `main`, the loaded unpacked dev extension is still running the pre-merge code until `.dev/` is rebuilt. Each time:
+
+1. `git checkout main && git pull --ff-only` so local `main` has the new code.
+2. If `.dev/` exists locally, rerun `npm run dev:build`. The script is a cheap recursive copy plus manifest rewrite.
+3. If the merge touched any runtime file (`lib.js`, `storage.js`, `content.js`, `content.css`, `background.js`, `manifest.json`, anything under `icons/` or `options/`), tell the user to click the reload icon on the **TCGPlus (dev)** extension in `chrome://extensions` so the new code actually takes effect. Skip the reload prompt for doc-only / test-only / CI-only changes — the rebuild is a no-op visually.
+
+Skip steps 2–3 if `.dev/` isn't present — the user isn't on the dev workflow and only the published extension is in play.
+
 ## Definition of done
 
 A PR is ready to merge when:
