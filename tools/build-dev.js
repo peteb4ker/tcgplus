@@ -6,9 +6,11 @@
 // dev manifest changes name / short_name / description so they're clearly
 // distinguishable in chrome://extensions. Both can be toggled independently.
 //
-// Runtime files (`lib.js`, `content.js`, etc.) are exposed as symlinks, so
-// edits in the repo are picked up live — just reload the unpacked extension
-// in chrome://extensions, no rebuild needed.
+// Files are copied (not symlinked) because Chrome on macOS silently refuses
+// to read content-script JS through symlinks — the extension would load
+// without errors but its scripts would never fire. After editing source
+// files, rerun this script and hit "Reload" on the unpacked extension in
+// chrome://extensions.
 //
 // Usage:
 //   npm run dev:build
@@ -25,6 +27,17 @@ const DEV = path.join(ROOT, '.dev');
 // omitted here, same as in the production zip.
 const EXPOSE = ['lib.js', 'storage.js', 'content.js', 'content.css', 'background.js', 'icons', 'options'];
 
+/**
+ * Recursive copy. Node 16+ has fs.cpSync, but call it explicitly with the
+ * options we need so behaviour is obvious in code review.
+ *
+ * @param {string} src
+ * @param {string} dest
+ */
+function copyRecursive(src, dest) {
+  fs.cpSync(src, dest, { recursive: true, dereference: true });
+}
+
 function rebuild() {
   fs.rmSync(DEV, { recursive: true, force: true });
   fs.mkdirSync(DEV);
@@ -35,7 +48,7 @@ function rebuild() {
       console.error(`Missing source: ${src}`);
       process.exit(1);
     }
-    fs.symlinkSync(src, path.join(DEV, f));
+    copyRecursive(src, path.join(DEV, f));
   }
 
   /** @type {Record<string, unknown>} */
@@ -60,5 +73,4 @@ console.log('  2. Enable Developer mode (top right) if not already on');
 console.log('  3. Click "Load unpacked" and pick the .dev directory');
 console.log('  4. Toggle the production "TCGPlus" extension off while testing');
 console.log('');
-console.log('After code edits, just reload the unpacked extension — symlinks pick up changes.');
-console.log('If you add a new top-level file the extension needs, rerun this script.');
+console.log('After code edits, rerun `npm run dev:build` and hit "Reload" on the unpacked extension.');
