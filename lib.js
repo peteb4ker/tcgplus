@@ -262,6 +262,64 @@ function isOurNode(n) {
   return cn.indexOf('tcgplus-') !== -1;
 }
 
+/**
+ * Build a degradation tracker that defers marking so transient hydration
+ * races (listings landing before the market price element, an in-flight
+ * cart fetch racing the next page tick, etc.) don't spam the console.
+ * `mark(key, message)` schedules a delayed mark; if `clear(key)` runs first,
+ * the timer is cancelled and nothing is logged or surfaced.
+ *
+ * @param {{
+ *   debounceMs?: number,
+ *   onChange?: () => void,
+ *   log?: (msg: string) => void,
+ *   setTimeoutFn?: typeof setTimeout,
+ *   clearTimeoutFn?: typeof clearTimeout,
+ * }} [opts]
+ */
+function createDegradationTracker(opts) {
+  const o = opts || {};
+  const debounceMs = typeof o.debounceMs === 'number' ? o.debounceMs : 1500;
+  const onChange = o.onChange || (() => {});
+  const log = o.log || ((msg) => console.warn(msg));
+  const setT = o.setTimeoutFn || setTimeout;
+  const clearT = o.clearTimeoutFn || clearTimeout;
+  /** @type {Map<string, string>} */
+  const entries = new Map();
+  /** @type {Map<string, ReturnType<typeof setTimeout>>} */
+  const pending = new Map();
+
+  function mark(key, message) {
+    // Already surfaced with this exact message? Nothing to do.
+    if (entries.get(key) === message) return;
+    // Replace any earlier pending mark for this key — latest message wins.
+    const existing = pending.get(key);
+    if (existing) clearT(existing);
+    const timer = setT(() => {
+      pending.delete(key);
+      entries.set(key, message);
+      log(`[TCG+] degraded: ${message}`);
+      onChange();
+    }, debounceMs);
+    pending.set(key, timer);
+  }
+
+  function clear(key) {
+    // Cancel a pending mark before it fires — this is the path that turns
+    // a transient race into a no-op rather than a console warning.
+    const existing = pending.get(key);
+    if (existing) {
+      clearT(existing);
+      pending.delete(key);
+    }
+    if (!entries.has(key)) return;
+    entries.delete(key);
+    onChange();
+  }
+
+  return { mark, clear, entries };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     STATES,
@@ -282,5 +340,6 @@ if (typeof module !== 'undefined' && module.exports) {
     formatPctDiff,
     tierLabel,
     isOurNode,
+    createDegradationTracker,
   };
 }

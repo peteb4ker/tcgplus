@@ -32,6 +32,19 @@ declare function formatPctDiff(pct: number): string;
 declare function tierLabel(tier: Tier, homeState: string, stateNames?: Record<string, string>): string;
 declare function isOurNode(n: Node | null | undefined): boolean;
 
+type DegradationTracker = {
+  mark: (key: string, message: string) => void;
+  clear: (key: string) => void;
+  entries: Map<string, string>;
+};
+declare function createDegradationTracker(opts?: {
+  debounceMs?: number;
+  onChange?: () => void;
+  log?: (msg: string) => void;
+  setTimeoutFn?: typeof setTimeout;
+  clearTimeoutFn?: typeof clearTimeout;
+}): DegradationTracker;
+
 // storage.js — chrome.storage.local helpers shared by content.js and the options page.
 
 type StorageKeyMap = {

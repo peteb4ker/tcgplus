@@ -158,3 +158,111 @@ test('STATES is a list of [code, name] pairs covering 50 + DC', () => {
   assert.equal(lib.STATE_CODES.has('XX'), false);
   assert.equal(lib.FREE_SHIP_THRESHOLD, 5.0);
 });
+
+// -- createDegradationTracker ------------------------------------------------
+// The tracker uses a fake clock so we can advance time precisely without
+// flaky sleeps. The fake setTimeout returns the timer record; advance() runs
+// every timer whose deadline is <= the current virtual time.
+
+function makeFakeClock() {
+  let now = 0;
+  /** @type {Array<{id: number, deadline: number, fn: () => void, cancelled: boolean}>} */
+  const timers = [];
+  let nextId = 1;
+  return {
+    setTimeoutFn: (fn, ms) => {
+      const t = { id: nextId++, deadline: now + ms, fn, cancelled: false };
+      timers.push(t);
+      return t;
+    },
+    clearTimeoutFn: (t) => {
+      if (t) t.cancelled = true;
+    },
+    advance(ms) {
+      now += ms;
+      // Fire matured, non-cancelled timers in insertion order. A timer's
+      // callback may schedule more timers; those are processed on the next
+      // advance() call.
+      const due = timers.filter((t) => !t.cancelled && t.deadline <= now);
+      for (const t of due) {
+        t.cancelled = true;
+        t.fn();
+      }
+    },
+  };
+}
+
+test('createDegradationTracker defers mark by debounceMs and logs once', () => {
+  const clock = makeFakeClock();
+  const logged = [];
+  const tracker = lib.createDegradationTracker({
+    debounceMs: 1500,
+    log: (msg) => logged.push(msg),
+    setTimeoutFn: clock.setTimeoutFn,
+    clearTimeoutFn: clock.clearTimeoutFn,
+  });
+  tracker.mark('market-price', "Can't find market price");
+  // Before debounce expires: nothing logged, no entry surfaced.
+  clock.advance(1499);
+  assert.deepEqual(logged, []);
+  assert.equal(tracker.entries.size, 0);
+  // At debounce: the mark fires.
+  clock.advance(1);
+  assert.deepEqual(logged, ["[TCG+] degraded: Can't find market price"]);
+  assert.equal(tracker.entries.size, 1);
+  assert.equal(tracker.entries.get('market-price'), "Can't find market price");
+});
+
+test('createDegradationTracker swallows transient marks cleared inside the debounce window', () => {
+  const clock = makeFakeClock();
+  const logged = [];
+  const tracker = lib.createDegradationTracker({
+    debounceMs: 1500,
+    log: (msg) => logged.push(msg),
+    setTimeoutFn: clock.setTimeoutFn,
+    clearTimeoutFn: clock.clearTimeoutFn,
+  });
+  tracker.mark('market-price', 'Transient');
+  clock.advance(500);
+  tracker.clear('market-price');
+  clock.advance(2000); // long past the original debounce
+  assert.deepEqual(logged, []);
+  assert.equal(tracker.entries.size, 0);
+});
+
+test('createDegradationTracker dedupes when the same message is already surfaced', () => {
+  const clock = makeFakeClock();
+  const logged = [];
+  const tracker = lib.createDegradationTracker({
+    debounceMs: 1500,
+    log: (msg) => logged.push(msg),
+    setTimeoutFn: clock.setTimeoutFn,
+    clearTimeoutFn: clock.clearTimeoutFn,
+  });
+  tracker.mark('cart', 'API down');
+  clock.advance(1500);
+  assert.equal(logged.length, 1);
+  // Re-marking with the same message after it's surfaced is a no-op.
+  tracker.mark('cart', 'API down');
+  clock.advance(5000);
+  assert.equal(logged.length, 1);
+});
+
+test('createDegradationTracker fires onChange on real mark and on clear', () => {
+  const clock = makeFakeClock();
+  let changes = 0;
+  const tracker = lib.createDegradationTracker({
+    debounceMs: 1500,
+    onChange: () => changes++,
+    log: () => {},
+    setTimeoutFn: clock.setTimeoutFn,
+    clearTimeoutFn: clock.clearTimeoutFn,
+  });
+  tracker.mark('a', 'x');
+  // No onChange while pending.
+  assert.equal(changes, 0);
+  clock.advance(1500);
+  assert.equal(changes, 1);
+  tracker.clear('a');
+  assert.equal(changes, 2);
+});
