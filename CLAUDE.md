@@ -26,6 +26,71 @@ If a future feature genuinely needs server-side help (e.g. a community price dat
 
 When you add a new fetch target, add it to `manifest.json` `host_permissions`. New permissions are fine when they enable a feature; they are not fine for the sake of "future use."
 
+## Development loop
+
+For any change — feature, bug fix, chore, docs, infra — this is the standard arc. Each step links forward to a topical section below for the detail.
+
+### 1. Understand before changing
+
+- Bug reports: find root cause before proposing a fix. Don't pattern-match from training data — confirm with code reading or a live probe.
+- Feature requests: nail down scope and surface area before writing code. If "is this in scope?" isn't obvious, re-read "What this project is" and "Out of scope". Ask the user if either is still ambiguous.
+- Browser-visible symptoms: probe the live page via the Chrome DevTools MCP (`mcp__chrome-devtools__*`), don't guess from code alone.
+- Be honest about uncertainty. If the diagnosis is a guess or the design is one of several options, say so before branching.
+
+### 2. File the issue (→ "GitHub Issues is the backlog")
+
+- `gh issue create` with one of `feature`/`bug`/`chore`/`docs`/`tech-debt`.
+- Body: user-visible symptom or goal, what's been ruled out, acceptance criteria.
+- Adjacent problems noticed mid-investigation get their own follow-up issues — never bundled into the current PR.
+
+### 3. Branch (→ "Always work on a feature branch")
+
+- `git checkout main && git pull --ff-only`, then a prefixed branch (`feat/`, `fix/`, `chore/`, `docs/`, `ci/`, `refactor/`, `perf/`, `test/`, `style/`).
+
+### 4. Implement and test
+
+- Smallest diff that does the job. No drive-by refactors.
+- Bug fix: write a test that fails on `main` and passes with the fix. Verify both directions — placebo tests that pass trivially are worse than no test at all.
+- Feature: tests cover the new behaviour, edge cases plus happy path.
+- Chore / docs / infra: tests stay green; new tests aren't usually required unless the change actually alters runtime behaviour.
+- Pure helpers go in `tests/`. DOM and cross-cutting behaviour go in `e2e/`.
+
+### 5. Sync user-facing docs
+
+If the change affects what a user sees, does, or notices, the docs catch up in the same PR:
+
+- **README.md** when user-visible behaviour changes — a new feature, a changed setting, a new install/setup step.
+- **README screenshots** when the panel, chips, or settings page changes appearance. Retake via `mcp__chrome-devtools__take_screenshot` and replace the file in `docs/images/`. No stale screenshots.
+- **`docs/store/listing-description.md`** when the Web Store listing copy needs to match.
+- **CLAUDE.md** when the development workflow itself changes (CI gates, hooks, scripts, conventions).
+- **Deal-math changes** must update the README in the same commit — that math lives in code and prose and the two must agree.
+
+Pure-internal changes (refactors that don't change behaviour, dep bumps, test-only additions) don't need user-facing doc updates.
+
+### 6. Local gate (→ "Local checks before pushing")
+
+- `npm run check` — chains format/lint/typecheck/unit/e2e. The `.husky/pre-commit` hook runs the same thing automatically on `git commit`, so a clean commit means CI will pass too.
+
+### 7. Commit and push
+
+- Commit message: Conventional Commits prefix matching the branch. Body explains _why_. Reference `Closes #N` so the issue auto-closes on merge.
+
+### 8. Open the PR (→ "Always work on a feature branch")
+
+- Title is a Conventional Commits string — the PR-title linter will fail otherwise. Body has summary, why, test plan, `Closes #N`.
+- Queue `gh pr merge <N> --auto --squash --repo peteb4ker/tcgplus` immediately. CI gates the actual merge.
+
+### 9. After the merge lands (→ "After every PR you queued auto-merges")
+
+- Pull main locally, rerun `npm run dev:build` if `.dev/` exists, prompt the user to reload the dev extension if runtime files changed.
+- Scan the other open PRs for `mergeStateStatus: DIRTY` — their conflicts may have come from the merge that just landed. For Dependabot PRs comment `@dependabot recreate` (or `@dependabot rebase` if untouched). For human-authored PRs: `gh pr checkout <N>`, merge or rebase against current main, resolve, `git push --force-with-lease`.
+- One PR at a time — don't batch the post-merge ritual.
+
+### 10. Confirm and tidy
+
+- Verify `Closes #N` actually closed the issue on GitHub. If the fix only partially resolved it, leave the issue open with a status comment describing what's done and what's left.
+- If new follow-up issues surfaced mid-work, double-check they're filed.
+
 ## GitHub Issues is the backlog
 
 **Don't propose work out of thin air. Pull from issues.**
@@ -86,16 +151,14 @@ Setup is documented in PR #19 / [`docs/store/listing-description.md`](docs/store
 ## Local checks before pushing
 
 ```sh
-npm install              # once
-npx playwright install   # once, for the e2e suite
-npm test
-npm run test:e2e
-npm run format:check
-npm run lint
-npm run typecheck
+npm install              # once. Also installs the husky pre-commit hook.
+npx playwright install   # once, for the e2e suite.
+npm run check            # the gate. Chains format/lint/typecheck/unit/e2e.
 ```
 
-If any of these fail, CI will fail too. Fix locally first.
+`npm run check` is what `.husky/pre-commit` runs automatically, and it's what CI runs (split across parallel jobs for speed). A clean `npm run check` means CI will pass too. If something fails, fix it locally first.
+
+Individual scripts (`npm run format`, `npm run lint`, `npm test`, `npm run test:e2e`, `npm run typecheck`) are still available for iterating on a single slice while debugging.
 
 For UI changes, also reload the unpacked extension on `chrome://extensions` and verify the affected feature on a real TCGplayer product page and search page.
 
