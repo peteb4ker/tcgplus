@@ -7,7 +7,7 @@ const globals = require('globals');
 
 module.exports = [
   {
-    ignores: ['node_modules/**', 'dist/**', 'docs/**', '*.zip', 'test-results/**', 'playwright-report/**'],
+    ignores: ['node_modules/**', 'dist/**', '.dev/**', 'docs/**', '*.zip', 'test-results/**', 'playwright-report/**'],
   },
   {
     languageOptions: {

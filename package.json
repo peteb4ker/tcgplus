@@ -10,7 +10,8 @@
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
-    "release": "node tools/bump-version.js"
+    "release": "node tools/bump-version.js",
+    "dev:build": "node tools/build-dev.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
