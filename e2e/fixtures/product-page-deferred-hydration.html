@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Test product (deferred hydration) · TCGplayer fixture</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 24px;
+        max-width: 1100px;
+      }
+      .price-points {
+        margin-bottom: 24px;
+      }
+      .price-points__upper__price {
+        font-size: 22px;
+        color: #05772d;
+        font-weight: 700;
+      }
+      .listing-item {
+        border: 1px solid #ddd;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .listing-item__listing-data__info__price {
+        font-weight: 700;
+        color: #05772d;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <button class="mp-header__content__cart-count" type="button" aria-label="Cart">
+        <svg class="svg-inline--fa fa-cart-shopping" width="16" height="16"><title>cart</title></svg>
+        <span class="tcg-badge mp-header__content__cart-count__chip">2</span>
+      </button>
+    </header>
+
+    <section class="price-points">
+      <div>Market Price:</div>
+      <span class="price-points__upper__price">$10.00</span>
+    </section>
+
+    <!--
+      Listings shell is intentionally empty. A late-firing script below appends
+      the listings just like TCGplayer's Vue SPA does — after DOMContentLoaded
+      and after document_idle. This is the timing that triggers the cold-load
+      activation race the extension needs to survive (regression for #42).
+    -->
+    <section class="listings"></section>
+
+    <script>
+      // Defer past document_idle. window.load fires after document_idle, and
+      // queueMicrotask + a 50ms setTimeout pushes us comfortably past the
+      // content script's await on chrome.storage.local in the bootstrap.
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const listings = document.querySelector('.listings');
+          if (!listings) return;
+          listings.innerHTML = `
+            <article class="listing-item" data-testid="listing-item--0">
+              <div class="listing-item__listing-data">
+                <div class="listing-item__listing-data__seller">
+                  <div class="seller-info">
+                    <a class="seller-info__name" href="/sellers/Home-Seller/aaaaaaaa">Home Seller</a>
+                    <div class="seller-info__content"></div>
+                  </div>
+                </div>
+                <div class="listing-item__listing-data__info">
+                  <h3 class="listing-item__listing-data__info__condition"><a href="#">Near Mint</a></h3>
+                  <div class="listing-item__listing-data__info__price">$8.00</div>
+                  <span> Shipping: <a href="#"> Included </a></span>
+                </div>
+              </div>
+            </article>
+
+            <article class="listing-item" data-testid="listing-item--1">
+              <div class="listing-item__listing-data">
+                <div class="listing-item__listing-data__seller">
+                  <div class="seller-info">
+                    <a class="seller-info__name" href="/sellers/Nearby-Seller/bbbbbbbb">Nearby Seller</a>
+                    <div class="seller-info__content"></div>
+                  </div>
+                </div>
+                <div class="listing-item__listing-data__info">
+                  <h3 class="listing-item__listing-data__info__condition"><a href="#">Near Mint</a></h3>
+                  <div class="listing-item__listing-data__info__price">$11.00</div>
+                  <span>+ $1.31 Shipping</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="listing-item" data-testid="listing-item--2">
+              <div class="listing-item__listing-data">
+                <div class="listing-item__listing-data__seller">
+                  <div class="seller-info">
+                    <a class="seller-info__name" href="/sellers/Other-Seller/cccccccc">Other Seller</a>
+                    <div class="seller-info__content"></div>
+                  </div>
+                </div>
+                <div class="listing-item__listing-data__info">
+                  <h3 class="listing-item__listing-data__info__condition"><a href="#">Near Mint</a></h3>
+                  <div class="listing-item__listing-data__info__price">$15.00</div>
+                  <span>+ $3.99 Shipping</span>
+                </div>
+              </div>
+            </article>
+          `;
+        }, 50);
+      });
+    </script>
+  </body>
+</html>
