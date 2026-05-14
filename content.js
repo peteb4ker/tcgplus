@@ -153,11 +153,26 @@
   }
 
   let cartCountObserver = null;
+  /** @type {Element | null} */
+  let cartCountObservedEl = null;
   function watchCartCount() {
     const countEl = document.querySelector('.mp-header__content__cart-count__chip');
-    if (!countEl || cartCountObserver) return;
+    if (!countEl) return;
+    // Already observing this exact element? Nothing to do.
+    if (cartCountObservedEl === countEl) return;
+    // Either no observer yet, or the SPA replaced the header subtree out from
+    // under us (route change). Detach the stale observer and attach to the
+    // new element. Without this re-attach, adding items to the cart after an
+    // SPA nav wouldn't update the header subtotal until a hard reload (#45).
+    const isReattach = cartCountObservedEl !== null;
+    if (cartCountObserver) cartCountObserver.disconnect();
     cartCountObserver = new MutationObserver(() => refreshCart());
     cartCountObserver.observe(countEl, { childList: true, characterData: true, subtree: true });
+    cartCountObservedEl = countEl;
+    // Re-attach (not first attach) means we lost observation for some
+    // window during the SPA route swap. Refresh once so the badge reflects
+    // anything that changed while we weren't watching.
+    if (isReattach) refreshCart();
   }
 
   // -- Listing chip helpers ----------------------------------------------
