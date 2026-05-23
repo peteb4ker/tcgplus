@@ -7,7 +7,7 @@
 [![CodeQL](https://github.com/peteb4ker/tcgplus/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/peteb4ker/tcgplus/actions/workflows/codeql.yml)
 [![Release](https://img.shields.io/github/v/release/peteb4ker/tcgplus?label=release&color=05772d)](https://github.com/peteb4ker/tcgplus/releases/latest)
 
-**TCGPlus shows the true all-in cost of every TCGplayer listing — price vs. market, shipping, and real deals — and where each seller ships from.**
+TCGPlus adds the price-vs-market delta and shipping cost to every TCGplayer listing, flags the ones that still come in under market once shipping is included, and shows where the seller ships from.
 
 ![TCGPlus on a TCGplayer product page](docs/images/hero.png)
 
@@ -15,7 +15,7 @@
 
 ![TCGPlus deal chips and location filter in action](docs/images/demo.gif)
 
-Runs entirely in your browser — it only calls TCGplayer's own APIs and sends your data nowhere else.
+It runs entirely in your browser. The only network calls it makes are to TCGplayer's own APIs.
 
 ## Features
 
