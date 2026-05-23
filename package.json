@@ -13,15 +13,19 @@
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:e2e",
     "release": "node tools/bump-version.js",
     "dev:build": "node tools/build-dev.js",
+    "demo:record": "node tools/record-demo.js",
     "prepare": "husky"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
     "@types/chrome": "0.1.42",
     "@types/node": "25.6.2",
+    "@types/pngjs": "^6.0.5",
     "eslint": "10.3.0",
+    "gifenc": "^1.0.3",
     "globals": "17.6.0",
     "husky": "^9.1.7",
+    "pngjs": "^7.0.0",
     "prettier": "3.8.3",
     "typescript": "6.0.3"
   }
