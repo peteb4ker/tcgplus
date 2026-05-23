@@ -1,26 +1,25 @@
 // Record the README demo GIF.
 //
-// Launches Chromium with the unpacked extension loaded, navigates to a
-// mocked TCGplayer product page (same fixture the e2e suite uses), grabs
-// PNG screenshots at a fixed frame rate while a short scripted sequence
-// plays (initial render → click home filter → unclick → done), and
-// encodes the frames into docs/images/demo.gif using gifenc.
+// Launches Chromium with the unpacked extension loaded and Playwright's
+// recordVideo turned on, navigates to a mocked TCGplayer product page
+// (the same fixture the e2e suite uses), plays a short scripted sequence
+// (initial render → click home filter → unfilter → tail), then converts
+// the resulting WebM into docs/images/demo.gif using ffmpeg's
+// palettegen + paletteuse two-pass-in-one-command recipe.
 //
 // Usage:
 //   npm run demo:record
 //
-// Output: docs/images/demo.gif. The GIF is committed and referenced from
-// the README; rerun this script to regenerate after UI changes.
+// Requires `ffmpeg` on PATH. On macOS: `brew install ffmpeg`.
 //
-// No ffmpeg or other system tools required — everything runs through node
-// + the existing Playwright install.
+// Output: docs/images/demo.gif. Rerun this script to regenerate the
+// recording any time the UI it shows changes.
 
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const os = require('node:os');
+const { spawn, spawnSync } = require('node:child_process');
 const { chromium } = require('@playwright/test');
-const { PNG } = require('pngjs');
-const { GIFEncoder, quantize, applyPalette } = require('gifenc');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const EXT_PATH = REPO_ROOT;
@@ -32,17 +31,13 @@ const OUT_PATH = path.join(REPO_ROOT, 'docs', 'images', 'demo.gif');
 const VIEWPORT = { width: 960, height: 720 };
 
 // 10fps is the sweet spot for README demos: smooth enough to read the
-// interaction, slow enough to keep the file under 2MB.
+// interaction, slow enough to keep the file small.
 const FPS = 10;
-const FRAME_MS = Math.round(1000 / FPS);
 
-// Sequence timing (seconds). Each phase is a "hold" before the next action.
-const PHASES = [
-  { holdMs: 1500, action: null }, // initial: show chips + panel
-  { holdMs: 1500, action: 'clickHomeFilter' }, // filter applied
-  { holdMs: 1500, action: 'clickHomeFilter' }, // filter cleared
-  { holdMs: 600, action: null }, // tail pad before loop
-];
+// recordVideo starts when the context opens, so the first ~0.5s of the
+// recording captures the empty page + navigation. Trim it off via -ss
+// before encoding to GIF.
+const SKIP_START_SEC = 0.5;
 
 const SELLERS = {
   aaaaaaaa: { addressCity: 'Atascadero', addressTerritory: 'CA', addressCountryCode: 'US' },
@@ -55,6 +50,16 @@ const CART = {
   requestedTotalCost: 8.0,
   sellers: [{ sellerKey: 'aaaaaaaa', productTotalCost: 8.0, shippingCost: 0 }],
 };
+
+function requireFfmpeg() {
+  const r = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' });
+  if (r.status !== 0) {
+    console.error('ffmpeg not found on PATH. Install it first:');
+    console.error('  macOS:   brew install ffmpeg');
+    console.error('  Debian:  sudo apt-get install ffmpeg');
+    process.exit(1);
+  }
+}
 
 async function setupRoutes(page) {
   await page.context().addCookies([
@@ -90,42 +95,55 @@ async function setupRoutes(page) {
   );
 }
 
-async function captureFrame(page) {
-  const buf = await page.screenshot({ type: 'png', fullPage: false });
-  const png = PNG.sync.read(buf);
-  // gifenc wants RGBA Uint8Array. PNG.data is already RGBA.
-  return { data: new Uint8Array(png.data), width: png.width, height: png.height };
+async function playScript(page) {
+  // Wait until the extension has annotated everything so frame 1 already
+  // shows the working extension.
+  await page.locator('.tcgplus-panel').waitFor({ timeout: 5000 });
+  await page.locator('.listing-item[data-tcgplus-chips="1"]').nth(2).waitFor({ timeout: 5000 });
+
+  // Beat 1: initial state visible.
+  await page.waitForTimeout(1500);
+
+  // Beat 2: click the home filter — non-home listings hide.
+  await page.locator('.tcgplus-panel .tcgplus-panel-row[data-tier="home"]').click();
+  await page.waitForTimeout(1500);
+
+  // Beat 3: click again — filter clears, all listings return.
+  await page.locator('.tcgplus-panel .tcgplus-panel-row[data-tier="home"]').click();
+  await page.waitForTimeout(1500);
+
+  // Beat 4: small tail pad so the loop point isn't jarring.
+  await page.waitForTimeout(600);
 }
 
-async function performAction(page, name) {
-  if (name === 'clickHomeFilter') {
-    await page.locator('.tcgplus-panel .tcgplus-panel-row[data-tier="home"]').click();
-    return;
-  }
-  throw new Error(`Unknown action: ${name}`);
-}
-
-async function recordFrames(page, gif) {
-  let firstSize = null;
-  for (const phase of PHASES) {
-    if (phase.action) await performAction(page, phase.action);
-    const frames = Math.max(1, Math.round(phase.holdMs / FRAME_MS));
-    for (let i = 0; i < frames; i++) {
-      const frame = await captureFrame(page);
-      if (!firstSize) firstSize = { w: frame.width, h: frame.height };
-      // Build a per-frame palette. Quality 10 is a balance of speed and
-      // accuracy; bumping to 5 gives slightly better colour but slower.
-      const palette = quantize(frame.data, 256, { format: 'rgb444' });
-      const index = applyPalette(frame.data, palette, 'rgb444');
-      gif.writeFrame(index, frame.width, frame.height, { palette, delay: FRAME_MS });
-      await page.waitForTimeout(FRAME_MS);
-    }
-  }
-  return firstSize;
+function runFfmpeg(inputWebm, outputGif) {
+  // palettegen builds an optimal 256-colour palette for the whole clip;
+  // paletteuse maps each frame to that palette with Bayer dithering for
+  // smooth gradients without the splotchy artifacts of per-frame palettes.
+  // -ss before -i seeks before decoding, cheap.
+  const filter =
+    `fps=${FPS},scale=${VIEWPORT.width}:${VIEWPORT.height}:flags=lanczos,` +
+    `split[s0][s1];[s0]palettegen=max_colors=256[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5`;
+  return new Promise((resolve, reject) => {
+    const args = ['-y', '-ss', String(SKIP_START_SEC), '-i', inputWebm, '-vf', filter, '-loop', '0', outputGif];
+    const p = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+    p.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    p.on('exit', (code) => {
+      if (code !== 0) reject(new Error(`ffmpeg exited ${code}\n${stderr}`));
+      else resolve();
+    });
+  });
 }
 
 async function main() {
+  requireFfmpeg();
+
   const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tcgplus-demo-'));
+  const videoDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tcgplus-video-'));
+
   const ctx = await chromium.launchPersistentContext(userDataDir, {
     channel: 'chromium',
     args: [
@@ -137,35 +155,31 @@ async function main() {
       `--window-size=${VIEWPORT.width},${VIEWPORT.height}`,
     ],
     viewport: VIEWPORT,
+    recordVideo: { dir: videoDir, size: VIEWPORT },
   });
 
-  // launchPersistentContext gives an existing about:blank page; use it.
   let page = ctx.pages()[0];
   if (!page) page = await ctx.newPage();
   await page.setViewportSize(VIEWPORT);
 
   await setupRoutes(page);
   await page.goto('https://www.tcgplayer.com/product/1/demo');
+  await playScript(page);
 
-  // Wait for the extension to fully annotate the listings and render the
-  // panel so frame 1 already shows the working extension.
-  await page.locator('.tcgplus-panel').waitFor({ timeout: 5000 });
-  await page.locator('.listing-item[data-tcgplus-chips="1"]').nth(2).waitFor({ timeout: 5000 });
-
-  const gif = GIFEncoder();
-  const size = await recordFrames(page, gif);
-  gif.finish();
+  // Closing the context flushes the WebM to disk.
+  const videoPathBeforeClose = await page.video().path();
+  await ctx.close();
 
   await fs.mkdir(path.dirname(OUT_PATH), { recursive: true });
-  await fs.writeFile(OUT_PATH, Buffer.from(gif.bytes()));
+  await runFfmpeg(videoPathBeforeClose, OUT_PATH);
 
-  await ctx.close();
+  // Tidy.
   await fs.rm(userDataDir, { recursive: true, force: true });
+  await fs.rm(videoDir, { recursive: true, force: true });
 
   const bytes = (await fs.stat(OUT_PATH)).size;
-  const totalSec = PHASES.reduce((s, p) => s + p.holdMs, 0) / 1000;
   console.log(`Wrote ${path.relative(REPO_ROOT, OUT_PATH)}`);
-  console.log(`  ${size.w}x${size.h}, ${totalSec.toFixed(1)}s @ ${FPS}fps, ${(bytes / 1024).toFixed(0)} KB`);
+  console.log(`  ${VIEWPORT.width}x${VIEWPORT.height} @ ${FPS}fps, ${(bytes / 1024).toFixed(0)} KB`);
 }
 
 main().catch((err) => {
