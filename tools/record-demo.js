@@ -1,19 +1,22 @@
-// Record the README demo GIF.
+// Record the README demo GIF against live TCGplayer.
 //
 // Launches Chromium with the unpacked extension loaded and Playwright's
-// recordVideo turned on, navigates to a mocked TCGplayer product page
-// (the same fixture the e2e suite uses), plays a short scripted sequence
-// (initial render → click home filter → unfilter → tail), then converts
-// the resulting WebM into docs/images/demo.gif using ffmpeg's
-// palettegen + paletteuse two-pass-in-one-command recipe.
+// recordVideo turned on, navigates to a real TCGplayer search page,
+// waits for the extension to annotate the grid, clicks into a product
+// to show the full chip row + panel + location badges, then converts
+// the resulting WebM into docs/images/demo.gif via ffmpeg's
+// palettegen + paletteuse filter chain.
 //
 // Usage:
 //   npm run demo:record
 //
 // Requires `ffmpeg` on PATH. On macOS: `brew install ffmpeg`.
 //
-// Output: docs/images/demo.gif. Rerun this script to regenerate the
-// recording any time the UI it shows changes.
+// Notes:
+//   - Runs against the real site, so each recording reflects live
+//     prices/listings/sellers. Pages and DOM can change without warning.
+//   - Uses a fresh, cookieless session, so cart subtotal renders at
+//     $0.00. This is what a logged-out user sees.
 
 const path = require('node:path');
 const fs = require('node:fs/promises');
@@ -23,41 +26,45 @@ const { chromium } = require('@playwright/test');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const EXT_PATH = REPO_ROOT;
-const FIXTURES = path.join(REPO_ROOT, 'e2e', 'fixtures');
 const OUT_PATH = path.join(REPO_ROOT, 'docs', 'images', 'demo.gif');
 
-// Recording viewport. The fixture content's natural layout fills a 960x720
-// area, but Playwright's recordVideo captures at CSS pixels — so to keep
-// the GIF sharp on Retina-class displays in the GitHub README, we render
-// at 1920x1440 CSS pixels and CSS-zoom the document to 2x so the content
-// fills the bigger frame at higher effective pixel density.
-const CONTENT_SCALE = 2;
-const CONTENT_SIZE = { width: 960, height: 720 };
-const VIEWPORT = {
-  width: CONTENT_SIZE.width * CONTENT_SCALE,
-  height: CONTENT_SIZE.height * CONTENT_SCALE,
-};
+// The demo opens directly on a product page rather than starting on the
+// set's grid view and clicking through. Reasoning: the grid view's
+// default Best Match sort leads with sealed product and code cards
+// (boring); the `Sort=Price+High+to+Low` URL param is read as a
+// filter by TCGplayer and shows no matches; clicking the sort dropdown
+// adds 2-3s of recording for limited payoff. Going straight to a
+// concrete product with rich listings is the cleaner story.
+//
+// Pikachu ex - 276/217 from ME: Ascended Heroes — Special Illustration
+// Rare, expensive enough that listings span the full chip-colour range,
+// 17+ sellers from many states (gives the Vendor Locations panel
+// something to summarise), and at least one seller usually clears the
+// DEAL threshold.
+const PRODUCT_URL =
+  'https://www.tcgplayer.com/product/676088/pokemon-me-ascended-heroes-pikachu-ex-276-217?Condition=Near+Mint';
 
-// 10fps is the sweet spot for README demos: smooth enough to read the
-// interaction, slow enough to keep the file small.
+// Desktop viewport wide enough to keep TCGplayer in its non-narrow
+// layout. 1280x720 balances readability in the GitHub README against
+// keeping the GIF a sane file size (a 1600x900 demo against the real
+// site runs ~10 MB; 1280x720 lands closer to 3 MB).
+const VIEWPORT = { width: 1280, height: 720 };
+
+// 10fps demo: smooth enough to read interactions, slow enough to keep
+// the file size in a reasonable range.
 const FPS = 10;
 
-// recordVideo starts when the context opens, so the first ~0.5s of the
-// recording captures the empty page + navigation. Trim it off via -ss
-// before encoding to GIF.
-const SKIP_START_SEC = 0.5;
+// recordVideo starts the moment the context opens. The first several
+// seconds are about:blank, navigation, page load, extension annotation,
+// and the scroll-to-listings call. Trim past all of that so the GIF
+// opens on a fully-rendered, scrolled-into-place listing view. Tuned
+// empirically — too low and we see the loading state; too high and
+// the first beat gets clipped.
+const SKIP_START_SEC = 4.5;
 
-const SELLERS = {
-  aaaaaaaa: { addressCity: 'Atascadero', addressTerritory: 'CA', addressCountryCode: 'US' },
-  bbbbbbbb: { addressCity: 'Portland', addressTerritory: 'OR', addressCountryCode: 'US' },
-  cccccccc: { addressCity: 'Austin', addressTerritory: 'TX', addressCountryCode: 'US' },
-};
-const CART = {
-  itemCount: 1,
-  itemSubtotal: 8.0,
-  requestedTotalCost: 8.0,
-  sellers: [{ sellerKey: 'aaaaaaaa', productTotalCost: 8.0, shippingCost: 0 }],
-};
+// Max network-idle wait. TCGplayer's homepage and search pages are
+// heavyweight; allow generous time for fonts / images / JSON.
+const NAV_TIMEOUT_MS = 30000;
 
 function requireFfmpeg() {
   const r = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' });
@@ -69,66 +76,73 @@ function requireFfmpeg() {
   }
 }
 
-async function setupRoutes(page) {
-  await page.context().addCookies([
-    {
-      name: 'StoreCart_PRODUCTION',
-      value: 'CK=deadbeefdeadbeefdeadbeefdeadbeef&Ignore=false',
-      domain: '.tcgplayer.com',
-      path: '/',
-      secure: true,
-      httpOnly: false,
-      sameSite: 'Lax',
-    },
-  ]);
-  await page.route('**/sm/seller/*', (route) => {
-    const key = new URL(route.request().url()).pathname.split('/').pop() || '';
-    const info = SELLERS[key] || null;
-    route.fulfill({
-      status: info ? 200 : 404,
-      contentType: 'application/json',
-      body: JSON.stringify(info),
-    });
-  });
-  await page.route('**/v1/cart/**', (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ errors: [], results: [CART] }),
-    });
-  });
-  const html = await fs.readFile(path.join(FIXTURES, 'product-page.html'), 'utf8');
-  await page.route('https://www.tcgplayer.com/product/**', (route) =>
-    route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html })
-  );
+async function dismissCookieBanner(page) {
+  // TCGplayer uses OneTrust for consent in some regions. The "Accept All"
+  // button shows up only sometimes; click it if present, otherwise move on.
+  const candidates = [
+    '#onetrust-accept-btn-handler',
+    'button:has-text("Accept All Cookies")',
+    'button:has-text("Accept All")',
+  ];
+  for (const sel of candidates) {
+    const btn = page.locator(sel).first();
+    if (await btn.count()) {
+      try {
+        await btn.click({ timeout: 1500 });
+        return;
+      } catch {
+        // ignore — banner may have already vanished
+      }
+    }
+  }
+}
+
+async function waitForProductAnnotated(page) {
+  // On a product page, listings have data-tcgplus-chips="1" once the
+  // chip row is in place. Wait for at least three so the panel has
+  // counts to show.
+  await page.locator('.listing-item[data-tcgplus-chips="1"]').nth(2).waitFor({ timeout: 20000 });
+  // Plus the floating panel.
+  await page.locator('.tcgplus-panel').waitFor({ timeout: 5000 });
 }
 
 async function playScript(page) {
-  // Wait until the extension has annotated everything so frame 1 already
-  // shows the working extension.
-  await page.locator('.tcgplus-panel').waitFor({ timeout: 5000 });
-  await page.locator('.listing-item[data-tcgplus-chips="1"]').nth(2).waitFor({ timeout: 5000 });
+  // Wait for the extension to finish annotating, then scroll the
+  // listings into view so the recording leads with the chip-and-panel
+  // money shot (the product info card sits above by default).
+  await waitForProductAnnotated(page);
+  await page.evaluate(() => {
+    const first = document.querySelector('.listing-item');
+    if (first) first.scrollIntoView({ behavior: 'instant', block: 'start' });
+  });
+  // Neutral mouse position keeps hover state out of the frame.
+  await page.mouse.move(20, 200);
 
-  // Beat 1: initial state visible.
-  await page.waitForTimeout(1500);
+  // Beat 1: hold the unfiltered listing view.
+  await page.waitForTimeout(2200);
 
-  // Beat 2: click the home filter — non-home listings hide.
-  await page.locator('.tcgplus-panel .tcgplus-panel-row[data-tier="home"]').click();
-  await page.waitForTimeout(1500);
+  // Beat 2: click home tier in the panel — non-home listings hide,
+  // demonstrating the interactive filter. If there's no home-tier
+  // listing on this product, fall through to a longer hold.
+  const homeRow = page.locator('.tcgplus-panel-row[data-tier="home"]:not(.tcgplus-panel-row-disabled)');
+  if (await homeRow.count()) {
+    await homeRow.first().click();
+    await page.mouse.move(20, 200);
+    await page.waitForTimeout(2000);
 
-  // Beat 3: click again — filter clears, all listings return.
-  await page.locator('.tcgplus-panel .tcgplus-panel-row[data-tier="home"]').click();
-  await page.waitForTimeout(1500);
-
-  // Beat 4: small tail pad so the loop point isn't jarring.
-  await page.waitForTimeout(600);
+    // Beat 3: click again to clear the filter, all listings return.
+    await homeRow.first().click();
+    await page.mouse.move(20, 200);
+    await page.waitForTimeout(1500);
+  } else {
+    await page.waitForTimeout(2500);
+  }
 }
 
 function runFfmpeg(inputWebm, outputGif) {
-  // palettegen builds an optimal 256-colour palette for the whole clip;
-  // paletteuse maps each frame to that palette with Bayer dithering for
-  // smooth gradients without the splotchy artifacts of per-frame palettes.
-  // -ss before -i seeks before decoding, cheap.
+  // palettegen builds a 256-colour palette tuned to the clip; paletteuse
+  // maps each frame with Bayer dithering for smooth gradients without
+  // the splotchy artifacts of per-frame palettes.
   const filter =
     `fps=${FPS},scale=${VIEWPORT.width}:${VIEWPORT.height}:flags=lanczos,` +
     `split[s0][s1];[s0]palettegen=max_colors=256[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5`;
@@ -152,10 +166,14 @@ async function main() {
   const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tcgplus-demo-'));
   const videoDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tcgplus-video-'));
 
+  // Use the Playwright-bundled Chromium in headed mode. `channel: 'chrome'`
+  // (the user's real Chrome install) doesn't load --load-extension reliably
+  // alongside a temp user-data-dir; bundled Chromium does. Headed means a
+  // window pops up briefly while recording runs.
   const ctx = await chromium.launchPersistentContext(userDataDir, {
     channel: 'chromium',
+    headless: false,
     args: [
-      '--headless=new',
       `--disable-extensions-except=${EXT_PATH}`,
       `--load-extension=${EXT_PATH}`,
       '--no-default-browser-check',
@@ -169,27 +187,47 @@ async function main() {
   let page = ctx.pages()[0];
   if (!page) page = await ctx.newPage();
   await page.setViewportSize(VIEWPORT);
+  page.setDefaultTimeout(NAV_TIMEOUT_MS);
 
-  await setupRoutes(page);
-  await page.goto('https://www.tcgplayer.com/product/1/demo');
+  // Log everything the extension prints to console so we can tell if
+  // it's actually loading on the page or being skipped.
+  page.on('console', (msg) => {
+    const t = msg.text();
+    if (t.includes('TCG+') || t.includes('vendor location')) console.log(`  page>`, t);
+  });
 
-  // CSS zoom the entire document so the fixture's fixed-pixel layout
-  // fills the larger Retina-sized viewport. Effective rendering happens
-  // at CONTENT_SCALE × the original layout, giving us a 2x-sharp video.
-  await page.evaluate((scale) => {
-    document.documentElement.style.zoom = String(scale);
-  }, CONTENT_SCALE);
+  await page.goto(PRODUCT_URL, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
+  await dismissCookieBanner(page);
 
-  await playScript(page);
+  try {
+    await playScript(page);
+  } catch (err) {
+    // On failure, dump diagnostics: did the extension activate at all?
+    const diag = await page.evaluate(() => ({
+      url: location.href,
+      tiles: document.querySelectorAll('.product-card__product, .search-result').length,
+      annotated: document.querySelectorAll('[data-tcgplus-chips="1"]').length,
+      panel: !!document.querySelector('.tcgplus-panel'),
+      cartBadge: !!document.querySelector('.tcgplus-cart-subtotal'),
+    }));
+    console.error('Page state at failure:', JSON.stringify(diag));
+    try {
+      const dbg = path.join(REPO_ROOT, 'docs', 'images', '.demo-failed.png');
+      await page.screenshot({ path: dbg, fullPage: false });
+      console.error(`Wrote failure screenshot to ${path.relative(REPO_ROOT, dbg)}`);
+    } catch (_) {
+      // ignore secondary failures
+    }
+    throw err;
+  }
 
-  // Closing the context flushes the WebM to disk.
-  const videoPathBeforeClose = await page.video().path();
+  // Close to flush WebM to disk.
+  const videoPath = await page.video().path();
   await ctx.close();
 
   await fs.mkdir(path.dirname(OUT_PATH), { recursive: true });
-  await runFfmpeg(videoPathBeforeClose, OUT_PATH);
+  await runFfmpeg(videoPath, OUT_PATH);
 
-  // Tidy.
   await fs.rm(userDataDir, { recursive: true, force: true });
   await fs.rm(videoDir, { recursive: true, force: true });
 
