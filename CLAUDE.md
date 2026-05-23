@@ -34,7 +34,7 @@ For any change — feature, bug fix, chore, docs, infra — this is the standard
 
 - Bug reports: find root cause before proposing a fix. Don't pattern-match from training data — confirm with code reading or a live probe.
 - Feature requests: nail down scope and surface area before writing code. If "is this in scope?" isn't obvious, re-read "What this project is" and "Out of scope". Ask the user if either is still ambiguous.
-- Browser-visible symptoms: probe the live page via the Chrome DevTools MCP (`mcp__chrome-devtools__*`), don't guess from code alone.
+- Browser-visible symptoms: probe via **Playwright** in the actual recorder/test environment (`page.evaluate`, `page.locator(...).count()`, `page.screenshot`, `headless: false` + `await page.pause()` for interactive inspection). Do not use the Chrome DevTools MCP for this — it takes over the user's real Chrome session, and that session's cookies / persistent state differ from a fresh Playwright session, so findings from it can be false positives that don't reproduce in the recorder or the e2e suite. (PR #66's `Sort=Price+High+to+Low` URL-param finding was wrong for exactly this reason.) The single carve-out is one-off README screenshot capture from the user's real browser session.
 - Be honest about uncertainty. If the diagnosis is a guess or the design is one of several options, say so before branching.
 
 ### 2. File the issue (→ "GitHub Issues is the backlog")
