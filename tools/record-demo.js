@@ -26,9 +26,17 @@ const EXT_PATH = REPO_ROOT;
 const FIXTURES = path.join(REPO_ROOT, 'e2e', 'fixtures');
 const OUT_PATH = path.join(REPO_ROOT, 'docs', 'images', 'demo.gif');
 
-// Keep the viewport small so the GIF stays under a couple of MB. The
-// fixture's three listings + panel + cart header fit comfortably.
-const VIEWPORT = { width: 960, height: 720 };
+// Recording viewport. The fixture content's natural layout fills a 960x720
+// area, but Playwright's recordVideo captures at CSS pixels — so to keep
+// the GIF sharp on Retina-class displays in the GitHub README, we render
+// at 1920x1440 CSS pixels and CSS-zoom the document to 2x so the content
+// fills the bigger frame at higher effective pixel density.
+const CONTENT_SCALE = 2;
+const CONTENT_SIZE = { width: 960, height: 720 };
+const VIEWPORT = {
+  width: CONTENT_SIZE.width * CONTENT_SCALE,
+  height: CONTENT_SIZE.height * CONTENT_SCALE,
+};
 
 // 10fps is the sweet spot for README demos: smooth enough to read the
 // interaction, slow enough to keep the file small.
@@ -164,6 +172,14 @@ async function main() {
 
   await setupRoutes(page);
   await page.goto('https://www.tcgplayer.com/product/1/demo');
+
+  // CSS zoom the entire document so the fixture's fixed-pixel layout
+  // fills the larger Retina-sized viewport. Effective rendering happens
+  // at CONTENT_SCALE × the original layout, giving us a 2x-sharp video.
+  await page.evaluate((scale) => {
+    document.documentElement.style.zoom = String(scale);
+  }, CONTENT_SCALE);
+
   await playScript(page);
 
   // Closing the context flushes the WebM to disk.
