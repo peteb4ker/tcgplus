@@ -1,12 +1,21 @@
 # TCGPlus
 
+[![Install from the Chrome Web Store](https://img.shields.io/chrome-web-store/v/laaddebgfkkfemgjgjibdhpnflmchjaj?label=Install%20from%20the%20Chrome%20Web%20Store&logo=googlechrome&logoColor=fff&color=4285f4&style=for-the-badge)](https://chromewebstore.google.com/detail/tcgplus/laaddebgfkkfemgjgjibdhpnflmchjaj)
+[![Chrome Web Store users](https://img.shields.io/chrome-web-store/users/laaddebgfkkfemgjgjibdhpnflmchjaj?label=users&color=05772d&style=for-the-badge)](https://chromewebstore.google.com/detail/tcgplus/laaddebgfkkfemgjgjibdhpnflmchjaj)
+
 [![CI](https://github.com/peteb4ker/tcgplus/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/peteb4ker/tcgplus/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/peteb4ker/tcgplus/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/peteb4ker/tcgplus/actions/workflows/codeql.yml)
 [![Release](https://img.shields.io/github/v/release/peteb4ker/tcgplus?label=release&color=05772d)](https://github.com/peteb4ker/tcgplus/releases/latest)
 
-TCGPlus is a Chrome extension for [TCGplayer](https://www.tcgplayer.com). It reduces friction in the navigation experience so you can search and buy faster.
+**TCGPlus shows the true all-in cost of every TCGplayer listing — price vs. market, shipping, and real deals — and where each seller ships from.**
 
 ![TCGPlus on a TCGplayer product page](docs/images/hero.png)
+
+<!-- TODO: record demo.gif and drop into docs/images/ -->
+
+![TCGPlus deal chips and location filter in action](docs/images/demo.gif)
+
+Runs entirely in your browser — it only calls TCGplayer's own APIs and sends your data nowhere else.
 
 ## Features
 
@@ -74,14 +83,6 @@ TCGPlus only calls TCGplayer's own APIs:
 
 The market price is read straight from the page DOM. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
 
-## Install (from source)
-
-1. Clone this repo, or download the latest [release zip](../../releases).
-2. In Chrome, open `chrome://extensions`.
-3. Turn on **Developer mode** (top right).
-4. Click **Load unpacked** and select this directory.
-5. Visit any product page (`https://www.tcgplayer.com/product/*`) or search page (`https://www.tcgplayer.com/search/*`).
-
 ## Development
 
 Plain MV3, no build step. Edit `content.js` and `content.css`, hit reload on the extension in `chrome://extensions`, then refresh the TCGplayer tab.
@@ -89,6 +90,16 @@ Plain MV3, no build step. Edit `content.js` and `content.css`, hit reload on the
 CI on GitHub Actions validates `manifest.json` and runs `node --check` on the content script. Pushing a `v*` tag builds a zip and attaches it to a GitHub Release.
 
 The fetch targets are `https://seller-stores-backend.tcgplayer.com/sm/seller/<key>` (vendor info) and `https://mpgateway.tcgplayer.com/v1/cart/<key>/summary` (cart subtotal). Both are listed as host permissions in the manifest. Market price is read from the page DOM at `.price-points__upper__price`.
+
+### Install from source
+
+For local development or testing an unreleased build:
+
+1. Clone this repo, or download the latest [release zip](../../releases).
+2. In Chrome, open `chrome://extensions`.
+3. Turn on **Developer mode** (top right).
+4. Click **Load unpacked** and select this directory.
+5. Visit any product page (`https://www.tcgplayer.com/product/*`) or search page (`https://www.tcgplayer.com/search/*`).
 
 ## License
 
