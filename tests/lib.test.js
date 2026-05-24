@@ -24,10 +24,15 @@ test('parseShippingCost: explicit "$X.XX Shipping"', () => {
 });
 
 test('parseShippingCost: rejects price-then-shipping conflation', () => {
-  // A parent element containing both a listing price and the word "Shipping"
+  // A parent element containing both a listing price and a shipping phrase
   // could trick a permissive regex into reading the listing price as
-  // shipping cost. The anchor on parseShippingCost should refuse it.
-  assert.equal(lib.parseShippingCost('Home Seller Near Mint $8.00 Shipping: Included'), 0);
+  // shipping cost (or treating the listing as free-shipped when it isn't).
+  // Every parseShippingCost branch must anchor to the start of the trimmed
+  // text. See #65: the unanchored "Shipping: Included" branch was returning
+  // 0 for outer-container text, and addPriceChips then wiped the seller /
+  // condition / price children when rendering the chip row.
+  assert.equal(lib.parseShippingCost('Home Seller Near Mint $8.00 Shipping: Included'), null);
+  assert.equal(lib.parseShippingCost('Home Seller Near Mint $8.00 Free Shipping'), null);
   assert.equal(lib.parseShippingCost('Near Mint $8.00 + $1.31 Shipping'), null);
 });
 
