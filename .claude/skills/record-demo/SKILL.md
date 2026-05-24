@@ -34,7 +34,7 @@ A fresh `docs/images/demo.gif`, 1280×720 at 10 fps, 4–6 seconds, 2–4 MB. Re
 
 ## Default recording flow
 
-The recorder tells this story: search a Pokémon set in grid view → sort by price descending → click into the most expensive product → see the full chip row + panel + location badges → filter to home state.
+The recorder tells this story: search a Pokémon set in grid view → sort by price descending → jump-cut to a specific richly-listed product → see the full chip row + panel + location badges → filter to home state.
 
 Implementation steps in `playScript`:
 
@@ -42,13 +42,22 @@ Implementation steps in `playScript`:
 2. Hide TCGplayer's promotional banners from the DOM (see Constraints — they're noise).
 3. Drive the sort dropdown via the UI to select "Price: High to Low". Wait for the re-sort to settle.
 4. Hold on the sorted grid (Beat 1).
-5. Click the first product tile. Race a `context.waitForEvent('page')` against the click to handle the new-tab case.
+5. `page.goto` the chosen product URL directly. The Beat 1 → Beat 2 transition is a jump-cut in the encoded GIF, so the visual narrative reads as "click a product" without the recorder having to actually click a tile (see Constraints — TCGplayer tiles sometimes open in a new tab and the race is brittle).
 6. Wait for product-page annotation (`.listing-item[data-tcgplus-chips="1"]` plus `.tcgplus-panel`).
-7. Scroll the listings into view.
-8. Hold on the unfiltered product listings (Beat 2).
-9. Click the home-tier panel row to filter to home state.
-10. Hold on the filtered view (Beat 3).
-11. Close the context to flush WebM, then ffmpeg-encode.
+7. Hide product-page recommendation carousels ("Customers Also Purchased" etc., see Constraints).
+8. Scroll the listings into view.
+9. Hold on the unfiltered product listings (Beat 2).
+10. Click the home-tier panel row to filter to home state.
+11. Re-scroll the listings header to the top of the viewport (the filter reflows the document shorter).
+12. Re-run the banner/carousel hide — the scroll can trigger lazy-loaded carousels back into the DOM.
+13. Hold on the filtered view (Beat 3).
+14. Close the context to flush WebM, then ffmpeg-encode.
+
+### Product choice
+
+The current demo uses **Mega Gengar ex (284/217)** from Ascended Heroes (product `676096`). Picked for: many listings spread across states (good panel data + a meaningful home-state filter), varied per-listing pricing (varied chip colours), high enough market price that the Deal chip can show. Update `PRODUCT_URL` in `tools/record-demo.js` to retarget.
+
+Beat 1's grid is independent of the chosen product — it just shows whatever's at the top of the price sort for the set. The set URL is `SEARCH_URL` in the recorder; the grid view condition is fixed to Near Mint to match what the extension nudges users toward.
 
 ## Encoding
 
@@ -99,19 +108,41 @@ Headed mode pops up a window over the user's workspace on every iteration. Use `
 userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
 ```
 
-### Hide promotional banners before recording
+### Hide promotional banners and product-page carousels before recording
 
-TCGplayer flashes a marketing banner ("Mayhem Sweepstakes" or similar) between the filter bar and the product tiles on search pages. It is noise. Hide it in the recorder before the recording window opens:
+TCGplayer puts two kinds of noise in front of the camera. On search pages it flashes a marketing banner ("Mayhem Sweepstakes" or similar) between the filter bar and the grid tiles. On product pages it lazy-loads "Customers Also Purchased" / "You May Also Like" carousels below the listings — those sit out of frame in unfiltered Beat 2, but the panel-filter beat reflows the document shorter and the carousels creep into the bottom of the viewport.
+
+`hidePromoBanners` handles both. Call it after every navigation, and again after any scroll that could trigger lazy-loaded carousels back into the DOM:
 
 ```js
 await page.evaluate(() => {
   const sels = [
-    '.search-result__sweepstakes-banner',
+    // Search-page marketing / sweepstakes banners
     '[class*="sweepstakes" i]',
     '[class*="promo-banner" i]',
     '[class*="marketing-banner" i]',
+    '[class*="hero-banner" i]',
+    '[data-testid*="banner" i]',
+    'a[href*="sweepstakes" i]',
+    // Product-page recommendations / upsell carousels
+    '[class*="customers-also" i]',
+    '[class*="also-purchased" i]',
+    '[class*="related-products" i]',
+    '[class*="recommended" i]',
+    '[class*="recommendation" i]',
+    '[data-testid*="related" i]',
+    '[data-testid*="recommend" i]',
   ];
   for (const sel of sels) document.querySelectorAll(sel).forEach((el) => el.remove());
+
+  // Text fallback for carousels with non-matching class names.
+  const titleRe =
+    /^\s*(customers also (purchased|bought)|you may also like|related products|recommended (for you|products))\s*$/i;
+  document.querySelectorAll('h1, h2, h3, h4').forEach((h) => {
+    if (!titleRe.test(h.textContent || '')) return;
+    const wrapper = h.closest('section, aside, [class*="section" i], [class*="carousel" i]') || h.parentElement;
+    if (wrapper) wrapper.remove();
+  });
 });
 ```
 

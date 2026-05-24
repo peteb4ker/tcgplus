@@ -3,9 +3,9 @@
 // Flow: open the Ascended Heroes grid view, manually select "Price: High to
 // Low" from the sort dropdown (the URL param doesn't apply a sort —
 // TCGplayer reads it as a filter, see .claude/skills/record-demo/SKILL.md),
-// wait for the re-sort, click the first (now most-expensive) tile, scroll
-// the resulting product page to its listings, and hold long enough for the
-// chip row + Vendor Locations panel + location badges to read. Convert the
+// wait for the re-sort, jump-cut to the Mega Gengar ex product page, scroll
+// to its listings, and hold long enough for the chip row + Vendor Locations
+// panel + location badges to read, then filter to home state. Convert the
 // resulting WebM to docs/images/demo.gif via ffmpeg.
 //
 // Usage:
@@ -31,6 +31,16 @@ const SEARCH_URL =
   'https://www.tcgplayer.com/search/pokemon/me-ascended-heroes' +
   '?productLineName=pokemon&page=1&view=grid&ProductTypeName=Cards' +
   '&setName=me-ascended-heroes&Condition=Near+Mint';
+
+// Product page for Beat 2. Mega Gengar ex (284/217) makes a richer demo
+// than the top-of-sort tile — varied chip colours across listings, plenty
+// of sellers spread across states for the panel-filter beat. The grid
+// view in Beat 1 doesn't need this product visible; we jump-cut from a
+// sorted-grid hold straight to the product page.
+const PRODUCT_URL =
+  'https://www.tcgplayer.com/product/676096/' +
+  'pokemon-me-ascended-heroes-mega-gengar-ex-284-217' +
+  '?Condition=Near+Mint&page=1&Language=English';
 
 // Desktop viewport wide enough to keep TCGplayer in its non-narrow layout.
 // 1280x720 balances readability in the GitHub README against keeping the
@@ -82,22 +92,46 @@ async function dismissCookieBanner(page) {
 }
 
 async function hidePromoBanners(page) {
-  // Remove TCGplayer's promotional banners ("Mayhem Sweepstakes" etc.)
-  // before recording so they don't sit between the filter bar and the
-  // product tiles. Targets common ad/promo selectors and known wrapper
-  // class fragments; safe to broaden if a new banner shows up.
+  // Strip TCGplayer noise that would distract from the recording: the
+  // "Mayhem Sweepstakes" / marketing banner that lands between the filter
+  // bar and the grid tiles on search pages, and the "Customers Also
+  // Purchased" / recommendations carousels that sit below the listings
+  // on product pages. After the panel-filter beat the document reflows
+  // shorter and the carousels can creep into the bottom of the viewport,
+  // so we delete them outright. Safe to broaden if a new banner appears.
   await page.evaluate(() => {
     const sels = [
+      // Search-page marketing / sweepstakes banners
       '[class*="sweepstakes" i]',
       '[class*="promo-banner" i]',
       '[class*="marketing-banner" i]',
       '[class*="hero-banner" i]',
       '[data-testid*="banner" i]',
       'a[href*="sweepstakes" i]',
+      // Product-page recommendations / upsell carousels
+      '[class*="customers-also" i]',
+      '[class*="also-purchased" i]',
+      '[class*="related-products" i]',
+      '[class*="recommended" i]',
+      '[class*="recommendation" i]',
+      '[data-testid*="related" i]',
+      '[data-testid*="recommend" i]',
     ];
     for (const sel of sels) {
       document.querySelectorAll(sel).forEach((el) => el.remove());
     }
+    // Text-based fallback: any section whose heading is literally
+    // "Customers Also Purchased" / "Customers Also Bought" / "You May
+    // Also Like" gets removed at the section level. Walk headings up
+    // to the nearest <section>/<aside> ancestor so the whole carousel
+    // goes, not just the title.
+    const titleRe =
+      /^\s*(customers also (purchased|bought)|you may also like|related products|recommended (for you|products))\s*$/i;
+    document.querySelectorAll('h1, h2, h3, h4').forEach((h) => {
+      if (!titleRe.test(h.textContent || '')) return;
+      const wrapper = h.closest('section, aside, [class*="section" i], [class*="carousel" i]') || h.parentElement;
+      if (wrapper) wrapper.remove();
+    });
   });
 }
 
@@ -169,18 +203,19 @@ async function playScript(initialPage, recStartT) {
   await page.waitForTimeout(2500);
   const gridEnd = tNow();
 
-  // Navigate to the most expensive product. Reading the first tile's href
-  // and using page.goto directly avoids the click-into-product race —
-  // TCGplayer's tile handlers can open a new tab via Vue JS, and the
-  // race between detecting that and reassigning the page reference is
-  // brittle. A direct navigation gives the same visual result.
-  const firstTile = page.locator('a[data-testid="product-card__image--0"]').first();
-  const productHref = await firstTile.getAttribute('href');
-  const productUrl = new URL(productHref, 'https://www.tcgplayer.com').toString();
-  await page.goto(productUrl, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
+  // Jump-cut to the chosen product. Going direct via page.goto rather
+  // than clicking a tile avoids TCGplayer's Vue handlers occasionally
+  // opening a new tab — the race between detecting that and reassigning
+  // the page reference is brittle, and a direct navigation gives the
+  // same visual result.
+  await page.goto(PRODUCT_URL, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
 
-  // Product page settled. Scroll listings into view.
+  // Product page settled. Strip the "Customers Also Purchased" and any
+  // other recommendation carousels before scrolling — they'd otherwise
+  // sit at the bottom of the viewport after the panel-filter beat
+  // reflows the document shorter.
   await waitForProductAnnotated(page);
+  await hidePromoBanners(page);
   await page.evaluate(() => {
     const first = document.querySelector('.listing-item');
     if (first) first.scrollIntoView({ behavior: 'instant', block: 'start' });
@@ -213,6 +248,9 @@ async function playScript(initialPage, recStartT) {
       );
       if (header) header.scrollIntoView({ behavior: 'instant', block: 'start' });
     });
+    // Scroll can trigger TCGplayer's lazy-loaded carousels; re-strip so
+    // they don't creep into the bottom of the viewport during the hold.
+    await hidePromoBanners(page);
     await page.mouse.move(20, 200);
     filterStart = tNow();
     await page.waitForTimeout(2500);
