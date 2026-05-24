@@ -3,163 +3,195 @@ name: record-demo
 description: Re-record the README demo GIF at docs/images/demo.gif against live TCGplayer. Trigger when the user asks to refresh, redo, or rerecord the demo GIF, or when UI changes have made the existing recording stale.
 ---
 
-# Recording the README demo GIF
+# record-demo
 
-The repo ships a `tools/record-demo.js` Playwright recorder. This skill captures everything I've learned from getting it to produce a good GIF, so the next person (probably future me) doesn't repeat the trial-and-error.
+Regenerate `docs/images/demo.gif` against live TCGplayer using `tools/record-demo.js`. Open a PR on a `docs/`-prefixed branch for review; do not auto-merge.
 
-## When to use
+## When to invoke
 
-- User says "redo the demo", "refresh the demo GIF", "rerecord the demo", or similar.
-- The README's `docs/images/demo.gif` no longer matches what the extension shows on real TCGplayer (e.g., a UI change landed, or the recorded set / product is no longer relevant).
-- A new feature deserves to be shown in the hero recording.
+- The user asks to redo, refresh, or rerecord the demo GIF.
+- A UI change has landed that makes the existing recording stale (panel layout, chip styling, settings page).
+- A new user-visible feature warrants showing in the README hero.
 
 ## Outcome
 
-A fresh `docs/images/demo.gif` committed on a feature branch (`docs/...` prefix), opened as a PR for review. ~1–3 MB target, 1280×720 at 10 fps, 5–8 s. Shows real TCGplayer data, opens on a populated view (not a loading state), and ends on a satisfying loop point.
+A fresh `docs/images/demo.gif`, 1280×720 at 10 fps, 4–6 seconds, 2–4 MB. Recording opens on real TCGplayer data, holds long enough to read each phase, ends on a satisfying loop point. No banner ads or loading spinners visible.
 
 ## Required tooling
 
-- `ffmpeg` on PATH (`brew install ffmpeg` on macOS). The recorder pre-flights and exits with a helpful hint if missing.
-- `npm install` once, plus `npx playwright install chromium` once.
-- Playwright's bundled Chromium. Not the user's real Chrome (see "Findings" below).
-
-## Default flow
-
-The user-facing story the recording tells: search the Ascended Heroes set in grid view → manually sort Price High to Low → click into the most expensive product → see the full chip row + Vendor Locations panel + location badges + DEAL chip.
-
-Implementation steps the recorder performs:
-
-1. `goto` the grid view URL (no `Sort=` in the URL — it doesn't work, see Findings).
-2. Wait for grid annotation (extension chips on ≥5 tiles).
-3. Click the sort dropdown, click "Price: High to Low", wait for the re-sort to settle.
-4. Hold briefly on the sorted grid (Beat 1).
-5. Click the first tile (now the most expensive Special Illustration Rare).
-6. Wait for product-page annotation (≥3 listings annotated, panel rendered).
-7. Scroll the listings into view.
-8. Hold (Beat 2) — the chip-row + panel money shot.
-9. Close context to flush WebM, then ffmpeg-encode to GIF with `palettegen` + `paletteuse`.
-
-`SKIP_START_SEC` chops the load + scroll-into-view phase so the GIF opens on a fully-rendered listings view. Tune empirically — too low and you see the loading state, too high and the first beat is clipped.
-
-## Findings worth knowing
-
-These are the rakes I stepped on. Don't repeat them.
-
-### Always probe inside Playwright, never via Chrome DevTools MCP
-
-The user's real Chrome session has cookies and persistent storage that change how TCGplayer behaves. The Playwright recorder uses a fresh temp profile. Probing the live page with DevTools MCP gives findings that don't reproduce in the recorder. Also: DevTools MCP takes over the user's actual browser, which is intrusive.
-
-Use Playwright's own affordances: `page.evaluate`, `page.locator(...).count()`, `await page.screenshot(...)`, `headless: false` + `await page.pause()` for interactive inspection. Everything DevTools MCP can do, Playwright can do in the right environment.
-
-### `Sort=Price+High+to+Low` in the URL doesn't work
-
-I assumed this URL param controlled sort. In a fresh Playwright session, TCGplayer interprets it as a **filter** (showing items matching "Price: High to Low", which is nothing), not a sort. The page falls back to default Best Match sort and shows boring sealed product and code cards.
-
-In the user's real-Chrome session the same URL worked. That's because their persisted state pre-selected the sort and the URL param happened to be consistent with it.
-
-**Workaround:** click the sort dropdown in the UI. Locate by stable text (`text="Price: High to Low"`), not by Vue scope hashes (`data-v-xxxxxxxx`).
-
-### Default grid sort is uninteresting
-
-Best Match leads with code cards and sealed product. Without an explicit sort, the grid view doesn't sell the extension. Always sort high-to-low before recording the grid leg of the demo.
-
-### `channel: 'chrome'` + `--load-extension` is unreliable
-
-Using `channel: 'chrome'` (the user's installed Chrome) with `--load-extension` and a temp `userDataDir` doesn't load the extension reliably — the page renders but the content script never fires. Use `channel: 'chromium'` (Playwright-bundled) instead. Same as the e2e suite does.
-
-### Headless works against live TCGplayer if you override the User-Agent
-
-Earlier I'd written this off — `--headless=new` failed and I switched to headed. The actual failure was unrelated (`channel: 'chrome'` not loading extensions). With `channel: 'chromium'` + `--headless=new`, the extension activates and the page loads — but TCGplayer can still treat the `HeadlessChrome` UA token differently. Set a normal Chrome UA on the context and the site behaves identically to headed:
-
-```js
-const REAL_UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
-// ... in launchPersistentContext options:
-userAgent: REAL_UA,
-```
-
-**Always use headless.** Headed mode pops up a real window over the user's workspace, which is intrusive on every iteration — they noticed and didn't like it.
-
-### `recordVideo` ignores `deviceScaleFactor`
-
-Playwright records at CSS pixel resolution. Setting `deviceScaleFactor: 2` does not give you a 2x-density video. The workaround for sharper output is to use a larger viewport and a CSS-zoomed page, but that only works when the page's layout doesn't break at the larger viewport — TCGplayer's site has responsive breakpoints that shift to a narrower-viewport layout under `zoom: 2`, so don't zoom for live recordings. Stick to 1280×720 native and accept some softness on Retina.
-
-### Real TCGplayer needs a fresh, cookieless session
-
-A logged-in session shows the cart subtotal at whatever the user has in their cart. For a public demo recording we want a clean baseline ($0.00) — that's what the default temp `userDataDir` gives. Don't reuse the user's profile.
-
-### Network latency is real and varies
-
-Live TCGplayer can take 2–4 seconds to render the grid and another 2–3 seconds after a sort change. `waitForLoadState('networkidle')` helps but isn't a silver bullet — TCGplayer has long-tail network activity (analytics, lazy-loaded images). Use specific DOM-state waits (`locator(...).nth(5).waitFor`) rather than blanket network waits.
-
-### Jump-cut the loading transition with ffmpeg select + setpts
-
-The recording captures everything between context-open and context-close: about:blank, navigation, sort settling, click → product-page load (~1.5s of mostly-white loading spinner), then product page. Don't let that loading gap into the final GIF — it kills the demo's pace.
-
-playScript captures wall-clock timestamps at the start and end of each "hold" beat (sorted grid hold, product page hold) using `Date.now() / 1000 - recStartT`, where `recStartT` is captured in `main` right after `launchPersistentContext` returns. Pass the resulting time ranges to ffmpeg:
-
-```text
-select='between(t,2.8,5.3)+between(t,7.1,10.6)',setpts=N/FRAME_RATE/TB,
-fps=10,scale=1280:720:flags=lanczos,split[s0][s1];[s0]palettegen=...
-```
-
-`select` keeps only the named ranges; `setpts=N/FRAME_RATE/TB` re-times the surviving frames so playback is smooth at the output FPS. This makes the GIF a clean grid-shot → jump cut → product-shot loop with no dead frames in the middle.
-
-### New-tab handling on the tile click
-
-TCGplayer's grid `<a>` tiles don't have `target="_blank"`, but their Vue handlers occasionally open a new page anyway. Wrap the click in a `context.waitForEvent('page', ...)` race:
-
-```js
-const newPagePromise = page
-  .context()
-  .waitForEvent('page', { timeout: 3000 })
-  .catch(() => null);
-await firstTile.click();
-const newPage = await newPagePromise;
-if (newPage) {
-  page = newPage;
-  await page.bringToFront();
-  await page.setViewportSize(VIEWPORT);
-}
-```
-
-If a new tab opened, switch to it and continue there. The video for whichever page actually navigated is the one that has the interesting content — `main` picks it via `ctx.pages()`.
-
-### The recorder has a failure-diagnostic screenshot
-
-If `playScript` fails, the recorder writes `docs/images/.demo-failed.png` and dumps a JSON state summary (URL, tile count, annotation status, panel state, cart badge). Use this to debug.
-
-### File size budget
-
-| Output size | Verdict                              |
-| ----------- | ------------------------------------ |
-| < 1 MB      | Excellent. Loads fast in the README. |
-| 1–3 MB      | Fine for a hero GIF.                 |
-| 3–5 MB      | On the heavy side but acceptable.    |
-| > 5 MB      | Tools struggle to inspect. Trim.     |
-
-The biggest knobs: viewport size, FPS, duration. ffmpeg's palette pipeline is already as efficient as it gets.
-
-## Debugging the recorder
-
-Don't reach for DevTools MCP. Instead:
-
-1. Add an `await page.pause()` at the failure point in `playScript`. Re-run the recorder. A headed window opens and pauses; you get a Playwright inspector to probe DOM, run console commands, and step through.
-2. Use the failure-diagnostic screenshot if a step times out.
-3. Add `page.on('console', ...)` to surface the extension's `[TCG+] vendor location extension loaded` log — confirms the content script actually fired.
+- `ffmpeg` on PATH. The recorder pre-flights this and exits with a brew/apt hint if missing.
+- `npm install` once. `npx playwright install chromium` once.
+- Playwright's bundled Chromium. Do not use the user's installed Chrome via `channel: 'chrome'` — extension loading is unreliable.
 
 ## Workflow
 
-1. **Branch.** `git checkout main && git pull --ff-only && git checkout -b docs/<short-name>`.
-2. **Run the recorder.** `npm run demo:record`. First run after a UI change usually fails — read the error and inspect the failure screenshot.
-3. **Iterate.** Adjust selectors, beat timings, or `SKIP_START_SEC` until the GIF looks right.
-4. **Sanity-check the GIF.** Extract frames at known points with `ffmpeg -i docs/images/demo.gif -vf "select=eq(n,N)" -vframes 1 frame-N.png`. Read them to confirm content is what you expect.
-5. **Update this skill** if you hit a new rake.
-6. **Commit.** `git add tools/record-demo.js docs/images/demo.gif .claude/skills/record-demo/SKILL.md`. Open a PR titled `docs: refresh demo GIF`. Don't queue auto-merge — the user reviews demo PRs by eye.
+1. Branch off `main` with a `docs/` prefix: `git checkout main && git pull --ff-only && git checkout -b docs/<short-name>`.
+2. Run `npm run demo:record`. The recorder navigates to a real TCGplayer URL, drives the UI, and produces `docs/images/demo.gif`.
+3. Sanity-check the GIF. Extract specific frames with ffmpeg if needed: `ffmpeg -i docs/images/demo.gif -vf "select=eq(n,N)" -vframes 1 frame-N.png`. Confirm each phase looks right.
+4. If a step in the recorder times out, read the failure-diagnostic screenshot at `docs/images/.demo-failed.png` and the JSON state summary printed to stderr. Fix selectors or timings.
+5. Commit, push, open a PR titled `docs: refresh demo GIF`. Do not queue auto-merge — the user reviews demo PRs visually.
+6. If the recorder reveals a new failure mode or selector quirk, fold it into this skill's "Constraints" section before merging.
 
-## When to break the default flow
+## Default recording flow
 
-- Showing a feature that only lives on a product page (e.g., DEAL chip math, shipping chips, Vendor Locations panel) → skip the grid leg, go directly to a known product URL.
-- Showing the cart-subtotal-in-header → still works in fresh session ($0.00) but won't have a non-zero number unless you mock the cart route, which would mean dropping back to test fixtures. Decide explicitly with the user.
-- Showing single-seller mode (the "You are shopping from" banner) → use a search URL with `?seller=<key>` rather than the set view.
+The recorder tells this story: search a Pokémon set in grid view → sort by price descending → click into the most expensive product → see the full chip row + panel + location badges → filter to home state.
+
+Implementation steps in `playScript`:
+
+1. Wait for the extension to annotate the default-sort grid (`.product-card__product[data-tcgplus-chips="1"]`).
+2. Hide TCGplayer's promotional banners from the DOM (see Constraints — they're noise).
+3. Drive the sort dropdown via the UI to select "Price: High to Low". Wait for the re-sort to settle.
+4. Hold on the sorted grid (Beat 1).
+5. Click the first product tile. Race a `context.waitForEvent('page')` against the click to handle the new-tab case.
+6. Wait for product-page annotation (`.listing-item[data-tcgplus-chips="1"]` plus `.tcgplus-panel`).
+7. Scroll the listings into view.
+8. Hold on the unfiltered product listings (Beat 2).
+9. Click the home-tier panel row to filter to home state.
+10. Hold on the filtered view (Beat 3).
+11. Close the context to flush WebM, then ffmpeg-encode.
+
+## Encoding
+
+Pass per-beat wall-clock timestamps from `playScript` to ffmpeg's `select` filter so the GIF jump-cuts the loading transitions between beats. Pattern:
+
+```
+select='between(t,t1,t2)+between(t,t3,t4)+between(t,t5,t6)',setpts=N/FRAME_RATE/TB,
+fps=10,scale=1280:720:flags=lanczos,
+split[s0][s1];[s0]palettegen=max_colors=256[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5
+```
+
+`select` keeps only the named time ranges. `setpts=N/FRAME_RATE/TB` re-times the surviving frames so playback is smooth at output FPS. `palettegen + paletteuse` with Bayer dither produces a clean GIF without per-frame palette artifacts.
+
+`playScript` records `Date.now()/1000 - recStartT` at the start and end of each hold, where `recStartT` is captured in `main` immediately after `launchPersistentContext` returns.
+
+## Constraints
+
+### Use Playwright for all browser-side probing
+
+Never use the Chrome DevTools MCP to investigate site behaviour. The MCP drives the user's real Chrome, which has cookies and persistent storage that change how TCGplayer responds. Findings there do not reproduce in the recorder's fresh temp profile. The MCP also takes over the user's screen.
+
+Inside the recorder, use `page.evaluate`, `page.locator(...).count()`, `await page.screenshot(...)`, or `headless: false` + `await page.pause()` to inspect state interactively.
+
+### The `Sort=` URL parameter does not sort
+
+TCGplayer reads `?Sort=Price+High+to+Low` as a filter. A fresh session sees zero matches and falls back to the default Best Match sort, which leads with sealed product and code cards. Drive the sort dropdown via the UI instead:
+
+```js
+const sortControl = page
+  .locator('select, [role="combobox"]')
+  .filter({ hasText: /best match|price|sort/i })
+  .first();
+if ((await sortControl.evaluate((el) => el.tagName).catch(() => null)) === 'SELECT') {
+  await sortControl.selectOption({ label: 'Price: High to Low' });
+} else {
+  await sortControl.click();
+  await page.locator('text=/^Price: High to Low$/').first().click({ timeout: 5000 });
+}
+```
+
+Locate options by stable text. Do not target Vue scope hashes (`data-v-xxxxxxxx`) — they change on every TCGplayer build.
+
+### Always run headless
+
+Headed mode pops up a window over the user's workspace on every iteration. Use `--headless=new` with `channel: 'chromium'`. Override the User-Agent so TCGplayer does not bot-detect on the `HeadlessChrome` token:
+
+```js
+userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+```
+
+### Hide promotional banners before recording
+
+TCGplayer flashes a marketing banner ("Mayhem Sweepstakes" or similar) between the filter bar and the product tiles on search pages. It is noise. Hide it in the recorder before the recording window opens:
+
+```js
+await page.evaluate(() => {
+  const sels = [
+    '.search-result__sweepstakes-banner',
+    '[class*="sweepstakes" i]',
+    '[class*="promo-banner" i]',
+    '[class*="marketing-banner" i]',
+  ];
+  for (const sel of sels) document.querySelectorAll(sel).forEach((el) => el.remove());
+});
+```
+
+Probe live for the current selectors if these no longer match.
+
+### `channel: 'chrome'` does not load `--load-extension` reliably
+
+Use `channel: 'chromium'` (Playwright-bundled). The e2e suite uses the same — keep it consistent.
+
+### `recordVideo` ignores `deviceScaleFactor`
+
+Playwright video output is at CSS pixel resolution regardless of `deviceScaleFactor`. CSS-zooming the page works for static fixtures but breaks live TCGplayer (responsive breakpoints shift the layout). Record at 1280×720 native and accept the result.
+
+### Use a fresh cookieless session
+
+Do not reuse the user's profile. A logged-in session leaks cart contents and other personal state into the recording. The default temp `userDataDir` gives the right baseline (`$0.00` cart).
+
+### Network-state waits over time-based waits
+
+Live TCGplayer takes 2–4 seconds to render the grid and another 2–3 seconds after a sort change. `waitForLoadState('networkidle')` is unreliable on TCGplayer because of long-tail analytics traffic. Use specific DOM-state waits such as `locator(...).nth(5).waitFor` or `page.waitForFunction(...)` against expected DOM content.
+
+### Prefer `page.goto(href)` over clicking tiles to navigate
+
+Reading the first tile's `href` and calling `page.goto` directly is more reliable than clicking it. TCGplayer's Vue handlers occasionally open a new tab via JavaScript even when the `<a>` has no `target="_blank"`. The race between `context.waitForEvent('page')` and the original page's navigation is brittle, and a new-tab destination can leave the active page reference pointing at the old grid. Direct navigation has the same visual result and no race:
+
+```js
+const firstTile = page.locator('a[data-testid="product-card__image--0"]').first();
+const href = await firstTile.getAttribute('href');
+const productUrl = new URL(href, 'https://www.tcgplayer.com').toString();
+await page.goto(productUrl, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
+```
+
+### Wait for the first-tile href to change after sort
+
+A sort change can briefly empty the grid before re-rendering, so polling on tile count races the empty intermediate state. Capture the first tile's `href` before clicking the sort option, then wait for the first tile's `href` to be a different product:
+
+```js
+const firstTileBefore = page.locator('a[data-testid="product-card__image--0"]').first();
+const hrefBefore = await firstTileBefore.getAttribute('href');
+// ... click the sort option ...
+await page.waitForFunction(
+  (hrefBefore) => {
+    const a = document.querySelector('a[data-testid="product-card__image--0"]');
+    if (!a) return false;
+    const cur = a.getAttribute('href');
+    return cur && cur !== hrefBefore;
+  },
+  hrefBefore,
+  { timeout: 15000 }
+);
+```
+
+### Re-scroll after a filter click
+
+Clicking a panel-filter row triggers CSS `display: none` on the hidden-tier listings, which reflows the document and shifts the visible scroll position. Without a re-scroll, the recording ends up showing the market-price chart or the "Customers Also Purchased" carousel instead of the filtered listings. After the click, wait ~250ms for layout to settle, then scroll the listings container back to the top:
+
+```js
+await homeRow.first().click();
+await page.waitForTimeout(250);
+await page.evaluate(() => {
+  const c = document.querySelector('.product-details__listings-results, .product-details__listings, .listings');
+  if (c) c.scrollIntoView({ behavior: 'instant', block: 'start' });
+});
+```
+
+Targeting the listings container (not the first listing-item) puts the section header at the top of the viewport, so both home listings are in frame.
+
+## File-size budget
+
+| Size   | Acceptable?                                                       |
+| ------ | ----------------------------------------------------------------- |
+| < 2 MB | Excellent. Loads fast in the README.                              |
+| 2–4 MB | Fine for a hero GIF.                                              |
+| 4–5 MB | On the heavy side. Trim a beat or drop FPS to 8 if possible.      |
+| > 5 MB | Too heavy. Tools struggle to inspect. Cut beats or viewport size. |
+
+The biggest knobs are viewport resolution, FPS, and total duration. ffmpeg's palette pipeline is already near-optimal.
+
+## Variants
+
+- **Showing a feature that only lives on a product page** (e.g., Deal-chip math, shipping chips, single product's panel): skip the grid leg, navigate directly to a product URL. Update keepRanges to one range.
+- **Showing single-seller mode** (the "You are shopping from" banner): start on a search URL with `?seller=<key>`. The per-listing badges are suppressed in this mode; the banner carries the seller's location instead.
+- **Showing settings page interactions**: navigate to `chrome-extension://<id>/options/index.html` after launching the extension. The ID is generated on each `launchPersistentContext`; read it from `chrome.management` via a privileged background context, or hard-code the development extension's ID after one-time setup.

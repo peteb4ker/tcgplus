@@ -81,6 +81,26 @@ async function dismissCookieBanner(page) {
   }
 }
 
+async function hidePromoBanners(page) {
+  // Remove TCGplayer's promotional banners ("Mayhem Sweepstakes" etc.)
+  // before recording so they don't sit between the filter bar and the
+  // product tiles. Targets common ad/promo selectors and known wrapper
+  // class fragments; safe to broaden if a new banner shows up.
+  await page.evaluate(() => {
+    const sels = [
+      '[class*="sweepstakes" i]',
+      '[class*="promo-banner" i]',
+      '[class*="marketing-banner" i]',
+      '[class*="hero-banner" i]',
+      '[data-testid*="banner" i]',
+      'a[href*="sweepstakes" i]',
+    ];
+    for (const sel of sels) {
+      document.querySelectorAll(sel).forEach((el) => el.remove());
+    }
+  });
+}
+
 async function waitForGridAnnotated(page) {
   // Extension marks each grid tile with data-tcgplus-chips="1" after it
   // builds the price-vs-market chip. Wait for several so we know the run is
@@ -95,81 +115,71 @@ async function waitForProductAnnotated(page) {
 
 async function sortPriceHighToLow(page) {
   // The sort dropdown is a Vue-styled <select> in TCGplayer's search UI.
-  // It's labelled "Sort & View" / sits in the .sort-and-view region.
-  // Use stable text-based locators rather than Vue scope hashes.
-  //
-  // Strategy: find the visible sort control, click to open, click the
-  // "Price: High to Low" option. After the click, the URL gains a
-  // Sort=... param and the grid re-renders — wait for the first tile's
-  // displayed price to be high enough that we know we're sorted.
+  // Locate by stable text, not by Vue scope hashes. Capture the current
+  // first-tile href so we can wait for it to change to a different
+  // product after the sort applies — TCGplayer empties the grid briefly
+  // during re-sort, so waiting on tile count alone races the empty state.
   const sortControl = page
     .locator('select, [role="combobox"]')
     .filter({ hasText: /best match|price|sort/i })
     .first();
 
-  // Approach A: real <select>. Use Playwright's selectOption.
+  const firstTileBefore = page.locator('a[data-testid="product-card__image--0"]').first();
+  const hrefBefore = await firstTileBefore.getAttribute('href');
+
   if ((await sortControl.evaluate((el) => el.tagName).catch(() => null)) === 'SELECT') {
     await sortControl.selectOption({ label: 'Price: High to Low' });
   } else {
-    // Approach B: Vue custom dropdown. Open it, then click the option.
     await sortControl.click();
     await page.locator('text=/^Price: High to Low$/').first().click({ timeout: 5000 });
   }
 
-  // The re-sort triggers a fresh search and a fresh extension annotation
-  // pass. Wait for the grid to be re-annotated; that signals the new
-  // tiles have rendered.
-  await page.locator('.product-card__product[data-tcgplus-chips="1"]').nth(5).waitFor({ timeout: 15000 });
-
-  // Belt-and-braces: confirm a high price is visible in the first tile so
-  // we know we're sorted (Special Illustration Rares from this set are in
-  // the hundreds-to-thousands of dollars).
+  // Wait for the first tile to be a different product than it was before
+  // — the most reliable signal that the re-sort has actually applied.
   await page.waitForFunction(
-    () => {
-      const first = document.querySelector('.product-card__product .inventory__price-with-shipping');
-      if (!first) return false;
-      const m = (first.textContent || '').match(/\$\s*([\d,]+(?:\.\d+)?)/);
-      return m && parseFloat(m[1].replace(/,/g, '')) >= 100;
+    (hrefBefore) => {
+      const a = document.querySelector('a[data-testid="product-card__image--0"]');
+      if (!a) return false;
+      const cur = a.getAttribute('href');
+      return cur && cur !== hrefBefore;
     },
-    null,
-    { timeout: 10000 }
+    hrefBefore,
+    { timeout: 15000 }
   );
+
+  // Now wait for the new tiles to be extension-annotated.
+  await page.locator('.product-card__product[data-tcgplus-chips="1"]').nth(5).waitFor({ timeout: 15000 });
 }
 
 async function playScript(initialPage, recStartT) {
-  let page = initialPage;
+  const page = initialPage;
   const tNow = () => Date.now() / 1000 - recStartT;
 
-  // Beat 0: page loaded, default sort. Sort manually.
+  // Page loaded with default sort. Strip promotional banners and sort
+  // the grid by price descending so the visible tiles are the most
+  // expensive Special Illustration Rares.
   await waitForGridAnnotated(page);
+  await hidePromoBanners(page);
   await sortPriceHighToLow(page);
-  await page.mouse.move(20, 200); // neutral cursor
+  await hidePromoBanners(page); // re-run; the sort can re-render the banner
+  await page.mouse.move(20, 200);
 
-  // Beat 1: hold on sorted grid. Capture the bounds for the GIF cut.
+  // Beat 1: hold on sorted, banner-free grid.
   const gridStart = tNow();
   await page.waitForTimeout(2500);
   const gridEnd = tNow();
 
-  // Beat 2: click into the most expensive product tile. The grid's <a>
-  // doesn't have target=_blank, so this should navigate the same tab,
-  // but TCGplayer's JS occasionally opens a new tab anyway. Race the
-  // possibilities and continue in whichever page actually navigated.
-  const firstTile = page.locator('a[data-testid="product-card__image--0"]');
-  await firstTile.scrollIntoViewIfNeeded();
-  const newPagePromise = page
-    .context()
-    .waitForEvent('page', { timeout: 3000 })
-    .catch(() => null);
-  await firstTile.click();
-  const newPage = await newPagePromise;
-  if (newPage) {
-    page = newPage;
-    await page.bringToFront();
-    await page.setViewportSize(VIEWPORT);
-  }
-  await page.waitForLoadState('domcontentloaded', { timeout: NAV_TIMEOUT_MS });
+  // Navigate to the most expensive product. Reading the first tile's href
+  // and using page.goto directly avoids the click-into-product race —
+  // TCGplayer's tile handlers can open a new tab via Vue JS, and the
+  // race between detecting that and reassigning the page reference is
+  // brittle. A direct navigation gives the same visual result.
+  const firstTile = page.locator('a[data-testid="product-card__image--0"]').first();
+  const productHref = await firstTile.getAttribute('href');
+  const productUrl = new URL(productHref, 'https://www.tcgplayer.com').toString();
+  await page.goto(productUrl, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT_MS });
 
-  // Beat 3: product page settled. Scroll listings into view.
+  // Product page settled. Scroll listings into view.
   await waitForProductAnnotated(page);
   await page.evaluate(() => {
     const first = document.querySelector('.listing-item');
@@ -177,18 +187,45 @@ async function playScript(initialPage, recStartT) {
   });
   await page.mouse.move(20, 200);
 
-  // Beat 4: hold the chip-row + panel money shot.
+  // Beat 2: hold on the unfiltered listings — full chip variety + panel.
   const productStart = tNow();
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(3000);
   const productEnd = tNow();
 
-  return {
-    page,
-    keepRanges: [
-      [gridStart, gridEnd],
-      [productStart, productEnd],
-    ],
-  };
+  // Beat 3: click the home-tier panel row to filter to California. The
+  // filter hides non-California listings via CSS, which reflows the page
+  // upward — re-scroll the first remaining listing into view so the
+  // recording stays focused on the listings, not the market-price chart
+  // that ends up filling the viewport after reflow.
+  const homeRow = page.locator('.tcgplus-panel-row[data-tier="home"]:not(.tcgplus-panel-row-disabled)');
+  let filterStart = null;
+  let filterEnd = null;
+  if (await homeRow.count()) {
+    await homeRow.first().click();
+    // Let the layout settle after the filter's CSS hides take effect,
+    // then re-position so the listings section header is at the top of
+    // the viewport (rather than the first home listing, which can land
+    // mid-document on products with few home listings).
+    await page.waitForTimeout(250);
+    await page.evaluate(() => {
+      const header = document.querySelector(
+        '.product-details__listings-results, .product-details__listings, .listings'
+      );
+      if (header) header.scrollIntoView({ behavior: 'instant', block: 'start' });
+    });
+    await page.mouse.move(20, 200);
+    filterStart = tNow();
+    await page.waitForTimeout(2500);
+    filterEnd = tNow();
+  }
+
+  const keepRanges = [
+    [gridStart, gridEnd],
+    [productStart, productEnd],
+  ];
+  if (filterStart != null) keepRanges.push([filterStart, filterEnd]);
+
+  return { page, keepRanges };
 }
 
 function runFfmpeg(inputWebm, outputGif, keepRanges) {
