@@ -89,16 +89,21 @@ function parsePrice(text) {
  */
 function parseShippingCost(text) {
   if (!text) return null;
-  // Anchor to the start of the trimmed text so an unrelated $price elsewhere
-  // (e.g. a sibling listing-price) can't be mistaken for the shipping cost.
+  // Anchor every branch to the start of the trimmed text. Without anchoring,
+  // a generic-span/div fallback in findListingShipping can land on an outer
+  // container whose text contains "Shipping: Included" or "Free Shipping"
+  // somewhere in the middle (alongside the seller name, condition, listing
+  // price). addPriceChips would then wipe that container's innerHTML and
+  // delete the listing's seller / price / condition along with the shipping
+  // cell. See #65.
   const trimmed = text.replace(/^\s+/, '');
   const explicit = trimmed.match(/^\+?\s*\$\s*(\d+(?:\.\d+)?)\s*shipping/i);
   if (explicit) {
     const v = parseFloat(explicit[1]);
     if (Number.isFinite(v) && v >= 0) return v;
   }
-  if (/shipping:\s*included/i.test(text)) return 0;
-  if (/free\s+shipping/i.test(text) && !/orders?\s+over/i.test(text)) return 0;
+  if (/^shipping\s*:\s*included/i.test(trimmed)) return 0;
+  if (/^free\s+shipping/i.test(trimmed) && !/orders?\s+over/i.test(trimmed)) return 0;
   return null;
 }
 
