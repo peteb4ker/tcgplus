@@ -583,7 +583,21 @@
   }
 
   async function annotateCartItem(item) {
-    if (item.dataset.tcgplus) return;
+    // pending = a fetch is already in flight for this row; don't double-up.
+    if (item.dataset.tcgplus === 'pending') return;
+    // Chip already present and intact — no work needed.
+    if (item.querySelector('.tcgplus-price-chips--cart')) return;
+
+    // From here on we're either annotating a fresh row, or RE-annotating
+    // a row whose chip TCGplayer destroyed. TCGplayer's responsive cart
+    // layout wipes .item-sales-info's children at narrow breakpoints and
+    // rebuilds them on the way back to wide, taking our chip with it but
+    // leaving the outer .package-item element (and our stale data-*
+    // attributes) intact. Without this re-entry path the chip never
+    // returns after a narrow detour. Reset state so a fresh fetch +
+    // injection runs cleanly.
+    delete item.dataset.tcgplus;
+    delete item.dataset.tcgplusChips;
     item.dataset.tcgplus = 'pending';
 
     const productId = findCartProductId(item);
@@ -620,8 +634,8 @@
     // .item-sales-info row.
     const parent = priceEl.parentElement;
     if (!parent) return;
-    // Idempotent: skip if we already injected (can happen on quantity-
-    // change re-renders).
+    // Belt-and-suspenders: an async fetch could race with another scan
+    // pass; bail if a sibling chip slipped in while we were awaiting.
     if (parent.querySelector(':scope > .tcgplus-price-chips--cart')) {
       item.dataset.tcgplusChips = '1';
       return;
@@ -846,7 +860,13 @@
     document.querySelectorAll('.product-card__product:not([data-tcgplus])').forEach((el) => {
       annotateProductCard(el);
     });
-    document.querySelectorAll('.package-item:not([data-tcgplus])').forEach((el) => {
+    // Always process every .package-item, not just un-annotated ones.
+    // TCGplayer's responsive cart layout strips our chip at narrow
+    // breakpoints without removing the .package-item itself, so a row
+    // can be marked `data-tcgplus="done"` but have no chip; the function
+    // is idempotent and will re-render only when the chip is actually
+    // missing.
+    document.querySelectorAll('.package-item').forEach((el) => {
       annotateCartItem(/** @type {HTMLElement} */ (el));
     });
     enhanceShopBySellerBanner();

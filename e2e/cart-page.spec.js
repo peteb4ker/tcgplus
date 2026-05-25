@@ -136,6 +136,46 @@ test.describe('Cart-page price chips (#72)', () => {
     await expect(holoRow.locator('.item-sales-info > .tcgplus-price-chips--cart')).toHaveCount(1);
   });
 
+  test('chip re-renders after TCGplayer wipes .item-sales-info (responsive layout re-render)', async () => {
+    // TCGplayer's cart layout strips .item-sales-info's children at
+    // narrow viewport breakpoints and rebuilds them on the way back to
+    // wide. Without the re-entry path the chip is gone after that
+    // detour because the outer .package-item retains its stale
+    // data-tcgplus="done" / data-tcgplus-chips="1" attrs.
+    await page.goto('https://www.tcgplayer.com/cart');
+    await expect(page.locator('.package-item[data-tcgplus-chips="1"]')).toHaveCount(2);
+    await expect(page.locator('.package-item .tcgplus-price-chip')).toHaveCount(2);
+
+    // Simulate the responsive wipe: empty .item-sales-info on the holo
+    // row, then rebuild its condition + price children just like
+    // TCGplayer does. The .package-item element itself is preserved.
+    await page.evaluate(() => {
+      const row = document.querySelector('[data-testid="cart-row--holo"]');
+      if (!row) throw new Error('cart-row--holo not found');
+      const salesInfo = row.querySelector('.item-sales-info');
+      if (!salesInfo) throw new Error('.item-sales-info not found');
+      salesInfo.replaceChildren();
+      // Rebuild like TCGplayer's wide layout would.
+      const cond = document.createElement('p');
+      cond.className = 'condition';
+      cond.setAttribute('data-testid', 'txtItemCondition');
+      cond.textContent = 'Near Mint Holofoil';
+      const price = document.createElement('p');
+      price.className = 'price';
+      price.setAttribute('data-testid', 'txtItemPrice');
+      price.textContent = '$0.20';
+      salesInfo.append(cond, price);
+    });
+
+    // Chip should come back via the MutationObserver → scan() →
+    // annotateCartItem path. Allow up to the 200ms scan-debounce + the
+    // async pricing cache lookup (already warm from initial render).
+    await expect(page.locator('[data-testid="cart-row--holo"] .tcgplus-price-chips--cart')).toHaveCount(1, {
+      timeout: 3000,
+    });
+    await expect(page.locator('[data-testid="cart-row--holo"] .tcgplus-price-chip')).toHaveText('-$0.33 (-62.3%)');
+  });
+
   test('no chip rendered when per-SKU pricing is unavailable', async () => {
     // Re-mock with no SKU catalog — per-SKU returns null and there's
     // no headline market on the cart page to fall back to, so nothing
