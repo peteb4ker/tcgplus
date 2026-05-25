@@ -2,7 +2,7 @@
   "name": "tcgplus",
   "version": "0.3.0",
   "private": true,
-  "description": "Chrome extension that adds usability improvements to TCGplayer.",
+  "description": "Compares each TCGplayer listing to market price, shows shipping and seller location, and marks the deals. Free and open source.",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "test:e2e": "playwright test",

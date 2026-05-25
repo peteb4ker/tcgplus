@@ -4,7 +4,7 @@ This file is the source for the TCGPlus Chrome Web Store listing. Paste these se
 
 ## Short description (132 chars max)
 
-Vendor locations, market-price chips, and a smart Deal indicator on every TCGplayer product page. No accounts, no servers.
+Compares each TCGplayer listing to market price, shows shipping and seller location, and marks the deals. Free and open source.
 
 ## Full description
 
