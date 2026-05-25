@@ -556,6 +556,97 @@
     card.dataset.tcgplusChips = '1';
   }
 
+  // -- Cart-page rows -----------------------------------------------------
+  // The cart page renders each line item as a `.package-item` inside a
+  // `.package` grouped by seller. The condition cell carries the full
+  // "Near Mint Holofoil"-style string that parseConditionAndVariant
+  // handles, and the productId is in the row's product link. Per-SKU
+  // pricing already gives us the right market for any variant/condition
+  // combo — wire it in so users can see whether items they've added to
+  // the cart are still a good deal before they check out (#72).
+
+  function findCartProductId(item) {
+    const link = item.querySelector('a[href*="/product/"]');
+    const href = link && link.getAttribute('href');
+    if (!href) return null;
+    const m = href.match(/\/product\/(\d+)/);
+    return m ? Number(m[1]) : null;
+  }
+
+  function findCartConditionText(item) {
+    const el = item.querySelector('[data-testid="txtItemCondition"], .item-sales-info .condition');
+    return el ? (el.textContent || '').trim() : null;
+  }
+
+  function findCartPriceEl(item) {
+    return item.querySelector('[data-testid="txtItemPrice"], .item-sales-info .price');
+  }
+
+  async function annotateCartItem(item) {
+    // pending = a fetch is already in flight for this row; don't double-up.
+    if (item.dataset.tcgplus === 'pending') return;
+    // Chip already present and intact — no work needed.
+    if (item.querySelector('.tcgplus-price-chips--cart')) return;
+
+    // From here on we're either annotating a fresh row, or RE-annotating
+    // a row whose chip TCGplayer destroyed. TCGplayer's responsive cart
+    // layout wipes .item-sales-info's children at narrow breakpoints and
+    // rebuilds them on the way back to wide, taking our chip with it but
+    // leaving the outer .package-item element (and our stale data-*
+    // attributes) intact. Without this re-entry path the chip never
+    // returns after a narrow detour. Reset state so a fresh fetch +
+    // injection runs cleanly.
+    delete item.dataset.tcgplus;
+    delete item.dataset.tcgplusChips;
+    item.dataset.tcgplus = 'pending';
+
+    const productId = findCartProductId(item);
+    const conditionText = findCartConditionText(item);
+    const priceEl = findCartPriceEl(item);
+    if (!productId || !conditionText || !priceEl) {
+      item.dataset.tcgplus = 'done';
+      return;
+    }
+    const price = parsePrice(priceEl.textContent);
+    if (!price) {
+      item.dataset.tcgplus = 'done';
+      return;
+    }
+    const { condition, variant } = parseConditionAndVariant(conditionText);
+    if (!condition) {
+      // Unknown condition tier — can't resolve to a SKU. No fallback on
+      // cart rows: there's no headline market price to gate against, so a
+      // chip would be a guess. Better to skip.
+      item.dataset.tcgplus = 'done';
+      return;
+    }
+    const pricing = await fetchProductSkuPricing(productId);
+    item.dataset.tcgplus = 'done';
+    if (!pricing) return;
+    const market = pricing.get(skuLookupKey(condition, variant));
+    if (!Number.isFinite(market)) return;
+
+    // Inject the chip as a sibling AFTER the price element rather than
+    // a child. The cart-row layout right-aligns the price `<p>`; widening
+    // it with an inline chip throws off that alignment so $0.12 ends up
+    // looking centred instead of flush right. A sibling block lets the
+    // price keep its original width and gets its own right-aligned
+    // .item-sales-info row.
+    const parent = priceEl.parentElement;
+    if (!parent) return;
+    // Belt-and-suspenders: an async fetch could race with another scan
+    // pass; bail if a sibling chip slipped in while we were awaiting.
+    if (parent.querySelector(':scope > .tcgplus-price-chips--cart')) {
+      item.dataset.tcgplusChips = '1';
+      return;
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'tcgplus-price-chips tcgplus-price-chips--cart';
+    wrap.innerHTML = buildDeltaChipHtml(price, market);
+    priceEl.insertAdjacentElement('afterend', wrap);
+    item.dataset.tcgplusChips = '1';
+  }
+
   // -- Shop-by-seller banner ---------------------------------------------
   // When the search page is filtered to a single seller, TCGplayer renders a
   // banner with the store name. Surface the seller's location once in that
@@ -768,6 +859,15 @@
     });
     document.querySelectorAll('.product-card__product:not([data-tcgplus])').forEach((el) => {
       annotateProductCard(el);
+    });
+    // Always process every .package-item, not just un-annotated ones.
+    // TCGplayer's responsive cart layout strips our chip at narrow
+    // breakpoints without removing the .package-item itself, so a row
+    // can be marked `data-tcgplus="done"` but have no chip; the function
+    // is idempotent and will re-render only when the chip is actually
+    // missing.
+    document.querySelectorAll('.package-item').forEach((el) => {
+      annotateCartItem(/** @type {HTMLElement} */ (el));
     });
     enhanceShopBySellerBanner();
     backfillPriceChips();
