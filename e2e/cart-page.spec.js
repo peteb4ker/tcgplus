@@ -125,6 +125,15 @@ test.describe('Cart-page price chips (#72)', () => {
     await expect(rhChip).toHaveCount(1);
     await expect(rhChip).toHaveText('-$1.47 (-31.5%)');
     await expect(rhChip).toHaveAttribute('title', 'vs market $4.67');
+
+    // Layout invariant: the chip is a SIBLING of the price element, not
+    // a child. Putting it inside the price <p> widens that element and
+    // breaks its right-alignment in the cart-row column. The chip wrap
+    // lives directly inside .item-sales-info, immediately after the
+    // price <p>.
+    const holoRow = page.locator('[data-testid="cart-row--holo"]');
+    await expect(holoRow.locator('[data-testid="txtItemPrice"] .tcgplus-price-chips')).toHaveCount(0);
+    await expect(holoRow.locator('.item-sales-info > .tcgplus-price-chips--cart')).toHaveCount(1);
   });
 
   test('no chip rendered when per-SKU pricing is unavailable', async () => {

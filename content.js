@@ -612,17 +612,24 @@
     const market = pricing.get(skuLookupKey(condition, variant));
     if (!Number.isFinite(market)) return;
 
-    // Idempotent injection: skip if a chip is already there (this can
-    // happen when TCGplayer re-renders the row after a quantity change).
-    if (priceEl.querySelector('.tcgplus-price-chips')) {
+    // Inject the chip as a sibling AFTER the price element rather than
+    // a child. The cart-row layout right-aligns the price `<p>`; widening
+    // it with an inline chip throws off that alignment so $0.12 ends up
+    // looking centred instead of flush right. A sibling block lets the
+    // price keep its original width and gets its own right-aligned
+    // .item-sales-info row.
+    const parent = priceEl.parentElement;
+    if (!parent) return;
+    // Idempotent: skip if we already injected (can happen on quantity-
+    // change re-renders).
+    if (parent.querySelector(':scope > .tcgplus-price-chips--cart')) {
       item.dataset.tcgplusChips = '1';
       return;
     }
-
-    const wrap = document.createElement('span');
+    const wrap = document.createElement('div');
     wrap.className = 'tcgplus-price-chips tcgplus-price-chips--cart';
     wrap.innerHTML = buildDeltaChipHtml(price, market);
-    priceEl.appendChild(wrap);
+    priceEl.insertAdjacentElement('afterend', wrap);
     item.dataset.tcgplusChips = '1';
   }
 

@@ -13,9 +13,18 @@
 /* In grid view the chips wrap is appended into the inventory price element
    right after the dollar amount, so it needs a small gap from the price.
    List view's chips wrap sits on its own shipping line and doesn't. */
-.tcgplus-price-chips--card,
-.tcgplus-price-chips--cart {
+.tcgplus-price-chips--card {
   margin-left: 8px;
+}
+/* On the cart page the chip is a sibling block placed AFTER the
+   right-aligned <p class="price"> inside .item-sales-info — putting it
+   inside the <p> widened the element and broke the price's right
+   alignment. Push the chip itself to the right edge of its column and
+   give it a little vertical breathing room below the price. */
+.tcgplus-price-chips--cart {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
 }
 .tcgplus-price-chip {
   display: inline-block;
