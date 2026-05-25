@@ -44,6 +44,8 @@ Each listing gets a row of chips that show price-vs-market, shipping cost, and w
 - **Shipping chip**: replaces the plain "+ $X.XX Shipping" line. Green when shipping is included, yellow under $2, red at $2 or more (labelled "high shipping").
 - **Deal chip**: a purple "DEAL" badge appears in front of the others when the listing's all-in cost would still beat the market price. The math factors in any "Free Shipping on Orders Over $X" promo on the listing, but only when the user's existing cart subtotal _with that same seller_ plus the listing's price clears the global free-shipping threshold (currently $5). If the listing is from a seller already in the cart, the Deal chip will start appearing once you've added enough to qualify.
 
+TCGplayer's market price is for one condition at a time — Near Mint by default, or whatever condition you've selected in the filter. The price-vs-market and Deal chips only render on listings that match that condition. A Lightly Played listing inside a tile whose headline market price is Near Mint shows just the shipping chip, not a misleading delta against the wrong condition's market.
+
 **Below market**
 
 ![Green chips below market](docs/images/chips-below-market.png)

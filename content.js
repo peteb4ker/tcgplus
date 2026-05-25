@@ -254,6 +254,11 @@
     return `<span class="tcgplus-price-chip" style="background:${colors.bg};color:${colors.fg};" title="vs market $${market.toFixed(2)}">${formatAbsDiff(diff)} (${formatPctDiff(pct)})</span>`;
   }
 
+  function findListingCondition(item) {
+    const el = item.querySelector('.listing-item__listing-data__info__condition');
+    return el ? (el.textContent || '').trim() : null;
+  }
+
   function addPriceChips(item, market) {
     if (item.dataset.tcgplusChips === '1') return;
     const priceEl = findListingPriceEl(item);
@@ -261,7 +266,18 @@
     const price = parsePrice(priceEl.textContent);
     if (!price) return;
 
-    const deltaChipHtml = buildDeltaChipHtml(price, market);
+    // The headline market price is for a single condition (Near Mint by
+    // default, or whatever the URL's Condition= param selects). A
+    // search-list-view tile can show listings of *other* conditions in
+    // the same `.search-result`. Chipping a Lightly Played listing
+    // against the Near Mint market is misleading (#69) — skip the
+    // price-vs-market and DEAL chips for mismatched conditions but
+    // keep the shipping chip, which doesn't depend on market.
+    const listingCondition = findListingCondition(item);
+    const headlineConditions = getUrlConditions(location.href);
+    const conditionMatches = listingMatchesHeadlineCondition(listingCondition, headlineConditions);
+
+    const deltaChipHtml = conditionMatches ? buildDeltaChipHtml(price, market) : '';
 
     const wrap = document.createElement('span');
     wrap.className = 'tcgplus-price-chips';
@@ -270,20 +286,28 @@
     if (shipping) {
       const sc = chipForShipping(shipping.cost);
       const shipChipHtml = `<span class="tcgplus-price-chip tcgplus-ship-chip" style="background:${sc.bg};color:${sc.fg};">${sc.text}</span>`;
-      const promoFree = hasFreeShippingPromo(item);
-      item.dataset.tcgplusPrice = String(price);
-      item.dataset.tcgplusShipping = String(shipping.cost);
-      item.dataset.tcgplusPromo = promoFree ? '1' : '0';
-      item.dataset.tcgplusMarket = String(market);
-      const dealChipHtml = renderDealChipHtml(item);
-      wrap.innerHTML = dealChipHtml + deltaChipHtml + shipChipHtml;
+      if (conditionMatches) {
+        const promoFree = hasFreeShippingPromo(item);
+        item.dataset.tcgplusPrice = String(price);
+        item.dataset.tcgplusShipping = String(shipping.cost);
+        item.dataset.tcgplusPromo = promoFree ? '1' : '0';
+        item.dataset.tcgplusMarket = String(market);
+        const dealChipHtml = renderDealChipHtml(item);
+        wrap.innerHTML = dealChipHtml + deltaChipHtml + shipChipHtml;
+      } else {
+        // No data attributes set, so recomputeDealChips won't try to
+        // render a DEAL chip on this listing later either.
+        wrap.innerHTML = shipChipHtml;
+      }
       shipping.el.dataset.tcgplusOriginalText = shipping.el.textContent.trim();
       shipping.el.innerHTML = '';
       shipping.el.appendChild(wrap);
-    } else {
+    } else if (conditionMatches) {
       wrap.innerHTML = deltaChipHtml;
       priceEl.appendChild(wrap);
     }
+    // else: condition mismatch and no shipping cell — nothing trustworthy
+    // to render, leave the listing as-is.
 
     item.dataset.tcgplusChips = '1';
   }

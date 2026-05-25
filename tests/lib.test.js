@@ -53,6 +53,57 @@ test('parseShippingCost: nothing matches', () => {
   assert.equal(lib.parseShippingCost('Add to Cart'), null);
 });
 
+test('getUrlConditions: defaults to Near Mint when no Condition param', () => {
+  assert.deepEqual(lib.getUrlConditions('https://www.tcgplayer.com/search/pokemon/foo'), ['Near Mint']);
+  assert.deepEqual(lib.getUrlConditions('https://www.tcgplayer.com/product/676096/x?Language=English'), ['Near Mint']);
+  assert.deepEqual(lib.getUrlConditions(''), ['Near Mint']);
+  assert.deepEqual(lib.getUrlConditions(null), ['Near Mint']);
+  assert.deepEqual(lib.getUrlConditions('not a url'), ['Near Mint']);
+});
+
+test('getUrlConditions: returns the URL-selected condition(s)', () => {
+  assert.deepEqual(lib.getUrlConditions('https://x.test/?Condition=Near+Mint'), ['Near Mint']);
+  assert.deepEqual(lib.getUrlConditions('https://x.test/?Condition=Lightly%20Played'), ['Lightly Played']);
+  // Multi-select condition filters: TCGplayer comma-joins them in the URL.
+  assert.deepEqual(lib.getUrlConditions('https://x.test/?Condition=Near+Mint,Lightly+Played'), [
+    'Near Mint',
+    'Lightly Played',
+  ]);
+  // Empty/whitespace-only entries are dropped.
+  assert.deepEqual(lib.getUrlConditions('https://x.test/?Condition=Near+Mint,'), ['Near Mint']);
+  // Accepts a URL object too.
+  assert.deepEqual(lib.getUrlConditions(new URL('https://x.test/?Condition=Played')), ['Played']);
+});
+
+test('listingMatchesHeadlineCondition: exact / case-insensitive match', () => {
+  assert.equal(lib.listingMatchesHeadlineCondition('Near Mint', ['Near Mint']), true);
+  assert.equal(lib.listingMatchesHeadlineCondition('near mint', ['Near Mint']), true);
+  assert.equal(lib.listingMatchesHeadlineCondition('Lightly Played', ['Near Mint']), false);
+  assert.equal(lib.listingMatchesHeadlineCondition('Lightly Played', ['Near Mint', 'Lightly Played']), true);
+});
+
+test('listingMatchesHeadlineCondition: strips trailing parenthetical', () => {
+  // Defensive: future TCGplayer DOM might emit "Near Mint (Foil)" or
+  // similar. Don't suppress chips just because of an annotation.
+  assert.equal(lib.listingMatchesHeadlineCondition('Near Mint (Foil)', ['Near Mint']), true);
+  assert.equal(lib.listingMatchesHeadlineCondition('Lightly Played (1st Edition)', ['Near Mint']), false);
+});
+
+test('listingMatchesHeadlineCondition: unknown listing condition is treated as a match', () => {
+  // If the condition class is renamed by TCGplayer, the lookup returns
+  // null. Preserve existing behaviour rather than suppressing every chip.
+  assert.equal(lib.listingMatchesHeadlineCondition(null, ['Near Mint']), true);
+  assert.equal(lib.listingMatchesHeadlineCondition('', ['Near Mint']), true);
+  assert.equal(lib.listingMatchesHeadlineCondition('   ', ['Near Mint']), true);
+});
+
+test('listingMatchesHeadlineCondition: empty headline list is treated as a match', () => {
+  // Defensive: caller shouldn't pass an empty array, but if they do, the
+  // safe default is to keep chips visible (with the existing market).
+  assert.equal(lib.listingMatchesHeadlineCondition('Near Mint', []), true);
+  assert.equal(lib.listingMatchesHeadlineCondition('Near Mint', null), true);
+});
+
 test('extractSellerKey from /sellers/<name>/<key>', () => {
   assert.equal(lib.extractSellerKey('/sellers/The-Poke-Farmer/b5a38050'), 'b5a38050');
   assert.equal(lib.extractSellerKey('https://www.tcgplayer.com/sellers/abc/123def456'), '123def456');
