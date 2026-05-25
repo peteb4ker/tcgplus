@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TCGPlus",
   "short_name": "TCGPlus",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Unofficial open-source overlay for TCGplayer: vendor locations, market-price chips, region filter, hide controls. No analytics.",
   "homepage_url": "https://github.com/peteb4ker/tcgplus",
   "permissions": ["storage"],
