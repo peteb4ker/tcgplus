@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "TCGPlus",
+  "name": "TCGPlus – TCGplayer Deal Finder & Seller Location",
   "short_name": "TCGPlus",
   "version": "0.3.0",
-  "description": "Unofficial open-source overlay for TCGplayer: vendor locations, market-price chips, region filter, hide controls. No analytics.",
+  "description": "Compares each TCGplayer listing to market price, shows shipping and seller location, and marks the deals. Free and open source.",
   "homepage_url": "https://github.com/peteb4ker/tcgplus",
   "permissions": ["storage"],
   "icons": {
