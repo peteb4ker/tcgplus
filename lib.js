@@ -108,6 +108,66 @@ function parseShippingCost(text) {
 }
 
 /**
+ * Get the conditions selected via a TCGplayer URL's `Condition` query
+ * parameter. TCGplayer's headline market price (the one we read for
+ * chip math) is for a single condition — Near Mint by default, or the
+ * URL-selected condition when one is set. A search-list-view tile can
+ * show listings of *other* conditions inside it, and chipping a
+ * Lightly Played listing against the Near Mint market gives misleading
+ * intel (see #69). Callers use this together with
+ * `listingMatchesHeadlineCondition` to decide whether a given
+ * listing's price-vs-market chip is trustworthy.
+ *
+ * @param {string | URL | null | undefined} url
+ * @returns {string[]} One or more condition names. Defaults to
+ *   `['Near Mint']` when the URL has no `Condition` param or the URL
+ *   can't be parsed.
+ */
+function getUrlConditions(url) {
+  if (!url) return ['Near Mint'];
+  try {
+    const u = typeof url === 'string' ? new URL(url) : url;
+    const raw = u.searchParams.get('Condition');
+    if (!raw) return ['Near Mint'];
+    const parts = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return parts.length ? parts : ['Near Mint'];
+  } catch {
+    return ['Near Mint'];
+  }
+}
+
+/**
+ * Check whether a listing's condition string matches one of the
+ * conditions the headline market price is "for". Comparison is
+ * case-insensitive and tolerates a trailing parenthetical (e.g.
+ * `"Near Mint (Foil)"`) so a future TCGplayer DOM tweak doesn't
+ * silently start suppressing every chip.
+ *
+ * Returns `true` when the listing condition is unknown (null/empty),
+ * preserving existing behaviour if TCGplayer renames the condition
+ * class — the chip may be wrong, but the user keeps seeing chips and
+ * the degradation tracker can surface the problem instead.
+ *
+ * @param {string | null | undefined} listingCondition
+ * @param {string[]} headlineConditions  As returned by `getUrlConditions`.
+ * @returns {boolean}
+ */
+function listingMatchesHeadlineCondition(listingCondition, headlineConditions) {
+  if (!Array.isArray(headlineConditions) || !headlineConditions.length) return true;
+  if (!listingCondition) return true;
+  const norm = listingCondition
+    .trim()
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .trim()
+    .toLowerCase();
+  if (!norm) return true;
+  return headlineConditions.some((h) => h.trim().toLowerCase() === norm);
+}
+
+/**
  * Pull the alphanumeric seller key out of a TCGplayer seller URL like
  * `/sellers/<name>/<key>`.
  *
@@ -335,6 +395,8 @@ if (typeof module !== 'undefined' && module.exports) {
     FREE_SHIP_THRESHOLD,
     parsePrice,
     parseShippingCost,
+    getUrlConditions,
+    listingMatchesHeadlineCondition,
     extractSellerKey,
     classifyState,
     stateCodeFromInfo,

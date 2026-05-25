@@ -67,6 +67,8 @@ module.exports = [
         FREE_SHIP_THRESHOLD: 'readonly',
         parsePrice: 'readonly',
         parseShippingCost: 'readonly',
+        getUrlConditions: 'readonly',
+        listingMatchesHeadlineCondition: 'readonly',
         extractSellerKey: 'readonly',
         classifyState: 'readonly',
         stateCodeFromInfo: 'readonly',

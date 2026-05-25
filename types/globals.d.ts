@@ -21,6 +21,11 @@ declare const FREE_SHIP_THRESHOLD: number;
 
 declare function parsePrice(text: string | null | undefined): number | null;
 declare function parseShippingCost(text: string | null | undefined): number | null;
+declare function getUrlConditions(url: string | URL | null | undefined): string[];
+declare function listingMatchesHeadlineCondition(
+  listingCondition: string | null | undefined,
+  headlineConditions: string[] | null | undefined
+): boolean;
 declare function extractSellerKey(href: string | null | undefined): string | null;
 declare function classifyState(stateCode: string, homeState: string, nearbyStates?: Set<string>): Tier;
 declare function stateCodeFromInfo(info: SellerInfo | null | undefined): string;
