@@ -556,6 +556,76 @@
     card.dataset.tcgplusChips = '1';
   }
 
+  // -- Cart-page rows -----------------------------------------------------
+  // The cart page renders each line item as a `.package-item` inside a
+  // `.package` grouped by seller. The condition cell carries the full
+  // "Near Mint Holofoil"-style string that parseConditionAndVariant
+  // handles, and the productId is in the row's product link. Per-SKU
+  // pricing already gives us the right market for any variant/condition
+  // combo — wire it in so users can see whether items they've added to
+  // the cart are still a good deal before they check out (#72).
+
+  function findCartProductId(item) {
+    const link = item.querySelector('a[href*="/product/"]');
+    const href = link && link.getAttribute('href');
+    if (!href) return null;
+    const m = href.match(/\/product\/(\d+)/);
+    return m ? Number(m[1]) : null;
+  }
+
+  function findCartConditionText(item) {
+    const el = item.querySelector('[data-testid="txtItemCondition"], .item-sales-info .condition');
+    return el ? (el.textContent || '').trim() : null;
+  }
+
+  function findCartPriceEl(item) {
+    return item.querySelector('[data-testid="txtItemPrice"], .item-sales-info .price');
+  }
+
+  async function annotateCartItem(item) {
+    if (item.dataset.tcgplus) return;
+    item.dataset.tcgplus = 'pending';
+
+    const productId = findCartProductId(item);
+    const conditionText = findCartConditionText(item);
+    const priceEl = findCartPriceEl(item);
+    if (!productId || !conditionText || !priceEl) {
+      item.dataset.tcgplus = 'done';
+      return;
+    }
+    const price = parsePrice(priceEl.textContent);
+    if (!price) {
+      item.dataset.tcgplus = 'done';
+      return;
+    }
+    const { condition, variant } = parseConditionAndVariant(conditionText);
+    if (!condition) {
+      // Unknown condition tier — can't resolve to a SKU. No fallback on
+      // cart rows: there's no headline market price to gate against, so a
+      // chip would be a guess. Better to skip.
+      item.dataset.tcgplus = 'done';
+      return;
+    }
+    const pricing = await fetchProductSkuPricing(productId);
+    item.dataset.tcgplus = 'done';
+    if (!pricing) return;
+    const market = pricing.get(skuLookupKey(condition, variant));
+    if (!Number.isFinite(market)) return;
+
+    // Idempotent injection: skip if a chip is already there (this can
+    // happen when TCGplayer re-renders the row after a quantity change).
+    if (priceEl.querySelector('.tcgplus-price-chips')) {
+      item.dataset.tcgplusChips = '1';
+      return;
+    }
+
+    const wrap = document.createElement('span');
+    wrap.className = 'tcgplus-price-chips tcgplus-price-chips--cart';
+    wrap.innerHTML = buildDeltaChipHtml(price, market);
+    priceEl.appendChild(wrap);
+    item.dataset.tcgplusChips = '1';
+  }
+
   // -- Shop-by-seller banner ---------------------------------------------
   // When the search page is filtered to a single seller, TCGplayer renders a
   // banner with the store name. Surface the seller's location once in that
@@ -768,6 +838,9 @@
     });
     document.querySelectorAll('.product-card__product:not([data-tcgplus])').forEach((el) => {
       annotateProductCard(el);
+    });
+    document.querySelectorAll('.package-item:not([data-tcgplus])').forEach((el) => {
+      annotateCartItem(/** @type {HTMLElement} */ (el));
     });
     enhanceShopBySellerBanner();
     backfillPriceChips();

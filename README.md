@@ -19,7 +19,7 @@ It runs entirely in your browser. The only network calls it makes are to TCGplay
 
 ## Features
 
-TCGPlus runs on TCGplayer product pages and on search pages (the views you use to browse a set or a vendor's listings). All of the chips, badges, filters, and panel controls below work the same in both places.
+TCGPlus runs on TCGplayer product pages, on search pages (the views you use to browse a set or a vendor's listings), and on the cart page. All of the chips, badges, filters, and panel controls below work the same in both places, and the cart page additionally gets a price-vs-market chip on every line item so you can sanity-check what's still a good deal before checking out.
 
 In **grid view** on the search page, where each tile shows one product without a separate shipping line, only the price-vs-market chip appears. List view continues to show the full chip row (delta, shipping, Deal). When you've filtered to a single seller (the "You are shopping from" banner is visible), the seller's location moves up into the banner and the per-listing location badges are suppressed since they'd all be identical.
 
@@ -84,8 +84,9 @@ TCGPlus only calls TCGplayer's own APIs:
 
 - `seller-stores-backend.tcgplayer.com/sm/seller/<key>` for each unique vendor on the page (used for the location badge).
 - `mpgateway.tcgplayer.com/v1/cart/<key>/summary` for the cart subtotal and per-seller breakdown.
+- `mp-search-api.tcgplayer.com/v2/product/<id>/details` for the SKU catalogue of each product (variant + condition), and `mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search` for per-SKU market prices. These power the variant-aware delta chip on product, search-list, and cart pages.
 
-The market price is read straight from the page DOM. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
+The page's headline market price is read from the page DOM as a fallback when per-SKU pricing isn't available. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
 
 ## Development
 
@@ -93,7 +94,7 @@ Plain MV3, no build step. Edit `content.js` and `content.css`, hit reload on the
 
 CI on GitHub Actions validates `manifest.json` and runs `node --check` on the content script. Pushing a `v*` tag builds a zip and attaches it to a GitHub Release.
 
-The fetch targets are `https://seller-stores-backend.tcgplayer.com/sm/seller/<key>` (vendor info) and `https://mpgateway.tcgplayer.com/v1/cart/<key>/summary` (cart subtotal). Both are listed as host permissions in the manifest. Market price is read from the page DOM at `.price-points__upper__price`.
+The fetch targets are `https://seller-stores-backend.tcgplayer.com/sm/seller/<key>` (vendor info), `https://mpgateway.tcgplayer.com/v1/cart/<key>/summary` (cart subtotal), `https://mp-search-api.tcgplayer.com/v2/product/<id>/details` (per-product SKU catalogue), and `https://mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search` (per-SKU market prices). All four are listed as host permissions in the manifest. The page's headline market price is read from the DOM at `.price-points__upper__price` as a fallback only.
 
 ### Install from source
 

@@ -37,6 +37,7 @@ async function launchWithExtension() {
  * @param {import('@playwright/test').Page} page
  * @param {{
  *   productHtml?: string;
+ *   cartHtml?: string;
  *   sellers?: Record<string, object>;
  *   cart?: object | null;
  *   productSkus?: Record<number, Array<{ sku: number; condition: string; variant: string; language?: string }>>;
@@ -106,6 +107,18 @@ async function mockTCGplayer(page, opts = {}) {
       body: productHtml,
     });
   });
+
+  // /cart is a separate fixture when the test wants to exercise the
+  // cart-page chips path. Not all tests need it.
+  if (opts.cartHtml) {
+    await page.route('https://www.tcgplayer.com/cart**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: opts.cartHtml,
+      });
+    });
+  }
 
   // mp-search-api: per-product SKU list (variant + condition catalog).
   // Returns empty `skus` when the product isn't in opts.productSkus, which
