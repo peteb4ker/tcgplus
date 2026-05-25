@@ -17,13 +17,18 @@
   margin-left: 8px;
 }
 /* On the cart page the chip is a sibling block placed AFTER the
-   right-aligned <p class="price"> inside .item-sales-info — putting it
-   inside the <p> widened the element and broke the price's right
-   alignment. Push the chip itself to the right edge of its column and
-   give it a little vertical breathing room below the price. */
+   <p class="price">. TCGplayer renders the row in two different
+   layouts depending on viewport width:
+   - wide: .item-sales-info is on the right side of the row, narrow
+     (content-width) and stacked, so its children visually sit flush
+     right within the row
+   - narrow: the price moves into a left-aligned single-column stack
+     under the card image
+   In both cases the chip should sit beneath the price and inherit
+   the same horizontal alignment as the price itself. Keep the wrap
+   as a simple block with no forced flex alignment — the chip then
+   naturally tracks whichever column the price is in. */
 .tcgplus-price-chips--cart {
-  display: flex;
-  justify-content: flex-end;
   margin-top: 4px;
 }
 .tcgplus-price-chip {
