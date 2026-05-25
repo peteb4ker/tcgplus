@@ -20,7 +20,7 @@ TCGPlus achieves this by **adding to and removing parts of the TCGplayer UI** to
 
 **No analytics. No servers. Ever.**
 
-The only network calls TCGPlus makes are to TCGplayer's own APIs (currently `seller-stores-backend.tcgplayer.com` and `mpgateway.tcgplayer.com`). All state lives in the user's `localStorage`. Nothing is logged anywhere outside the user's browser.
+The only network calls TCGPlus makes are to TCGplayer's own APIs (currently `seller-stores-backend.tcgplayer.com`, `mpgateway.tcgplayer.com`, and `mp-search-api.tcgplayer.com`). All state lives in the user's `localStorage`. Nothing is logged anywhere outside the user's browser.
 
 If a future feature genuinely needs server-side help (e.g. a community price database), it's a separate project, not a TCGPlus feature. Don't add Sentry, don't add a "report a bug" upload button, don't add a CDN-hosted config. Don't.
 
@@ -211,7 +211,8 @@ The "Deal" chip's logic is one of the few things that's hard to verify by readin
 - Whether the listing has a "Free Shipping on Orders Over $X" promo.
 - Per-seller cart subtotal from `mpgateway.tcgplayer.com/v1/cart/<key>/summary`.
 - Global free-shipping threshold (currently $5, hard-coded as `FREE_SHIP_THRESHOLD` in `lib.js`).
-- Page market price (`.price-points__upper__price` on product pages, `.product-info__market-price--value` / `.product-card__market-price--value` on search pages).
+- Per-SKU market price from TCGplayer's pricing endpoints, used as the primary source: `mp-search-api.tcgplayer.com/v2/product/<id>/details` returns the product's SKU list `[{sku, condition, variant, language}, …]`; `mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search` (POST `{skuIds: […]}`) returns `[{skuId, marketPrice, …}]`. The extension matches each listing to its SKU by parsing the condition cell text (e.g. `"Near Mint Reverse Holofoil"` → condition `"Near Mint"`, variant `"Reverse Holofoil"`) and uses the SKU's `marketPrice`. Cached per-productId for the page lifetime in `productSkuPricingCache`.
+- Fallback page market price (`.price-points__upper__price` on product pages, `.product-info__market-price--value` / `.product-card__market-price--value` on search pages), used only when the per-SKU lookup fails. The fallback path gates on condition match (URL `Condition=` param, default `Near Mint`) so a mismatched listing gets the shipping chip only instead of a misleading delta.
 
 When you change `renderDealChipHtml` or `recomputeDealChips` in `content.js`, update the `Price, shipping, and Deal chips` section of `README.md` in the same commit. The README is the user-facing source of truth.
 

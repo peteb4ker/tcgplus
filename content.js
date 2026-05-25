@@ -2,6 +2,8 @@
   'use strict';
 
   const SELLER_API = 'https://seller-stores-backend.tcgplayer.com/sm/seller/';
+  const PRODUCT_DETAILS_API = (id) => `https://mp-search-api.tcgplayer.com/v2/product/${id}/details?mpfev=5199`;
+  const SKU_MARKET_PRICE_API = 'https://mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search?mpfev=5199';
 
   // -- Settings state -----------------------------------------------------
   // Defaults; overridden in `loadSettings()` from chrome.storage.local.
@@ -73,6 +75,91 @@
       .catch(() => null);
     sellerCache.set(sellerKey, p);
     return p;
+  }
+
+  // -- Per-product per-SKU market-price cache -----------------------------
+  // The headline market price on a search-list tile or product page is for
+  // one (condition, variant, language) SKU — Normal × Near Mint × English
+  // by default. A tile can show listings spanning other variants
+  // (Holofoil, Reverse Holofoil) and other conditions whose true market
+  // prices differ significantly. We resolve each listing to its own SKU
+  // via TCGplayer's own two endpoints (the same ones the official site
+  // uses): product/details for the SKU list, then a POST to
+  // pricepoints/marketprice/skus/search for the per-SKU market price.
+  //
+  // Cache by productId for the life of the page — pricing updates on a
+  // multi-minute cadence, and a single search-list view rarely has more
+  // than ~20 products visible.
+
+  /** @type {Map<number, Promise<Map<string, number> | null>>} */
+  const productSkuPricingCache = new Map();
+
+  function skuLookupKey(condition, variant) {
+    return `${(condition || '').trim().toLowerCase()}|${(variant || 'Normal').trim().toLowerCase()}`;
+  }
+
+  function fetchProductSkuPricing(productId) {
+    if (!Number.isFinite(productId)) return Promise.resolve(null);
+    const cached = productSkuPricingCache.get(productId);
+    if (cached) return cached;
+    const p = (async () => {
+      try {
+        const dResp = await fetch(PRODUCT_DETAILS_API(productId), {
+          credentials: 'omit',
+          headers: { accept: 'application/json' },
+        });
+        if (!dResp.ok) return null;
+        const details = await dResp.json();
+        const skus = Array.isArray(details && details.skus) ? details.skus : [];
+        if (!skus.length) return null;
+        const skuIds = skus.map((s) => s && s.sku).filter((x) => Number.isFinite(x));
+        if (!skuIds.length) return null;
+        const pResp = await fetch(SKU_MARKET_PRICE_API, {
+          method: 'POST',
+          credentials: 'omit',
+          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          body: JSON.stringify({ skuIds }),
+        });
+        if (!pResp.ok) return null;
+        const prices = await pResp.json();
+        const skuMeta = new Map();
+        for (const s of skus) skuMeta.set(s.sku, s);
+        const out = new Map();
+        const rows = Array.isArray(prices) ? prices : [];
+        for (const row of rows) {
+          if (!row || typeof row.marketPrice !== 'number') continue;
+          const meta = skuMeta.get(row.skuId);
+          if (!meta) continue;
+          // Only English for now — the listing's language column is
+          // independent and we don't read it yet. English is the
+          // overwhelming majority of TCGplayer listings.
+          if (meta.language && meta.language !== 'English') continue;
+          out.set(skuLookupKey(meta.condition, meta.variant), row.marketPrice);
+        }
+        return out.size ? out : null;
+      } catch {
+        return null;
+      }
+    })();
+    productSkuPricingCache.set(productId, p);
+    return p;
+  }
+
+  /** Pull the productId from a listing's surrounding context. */
+  function getProductIdForItem(item) {
+    if (item) {
+      const tile = item.closest('.search-result');
+      if (tile) {
+        const link = tile.querySelector('a[href*="/product/"]');
+        const href = link && link.getAttribute('href');
+        if (href) {
+          const m = href.match(/\/product\/(\d+)/);
+          if (m) return Number(m[1]);
+        }
+      }
+    }
+    const pageMatch = location.pathname.match(/\/product\/(\d+)/);
+    return pageMatch ? Number(pageMatch[1]) : null;
   }
 
   // -- Setters that also persist -----------------------------------------
@@ -259,23 +346,49 @@
     return el ? (el.textContent || '').trim() : null;
   }
 
-  function addPriceChips(item, market) {
+  /**
+   * Look up the per-SKU market price for a listing via TCGplayer's own
+   * pricing endpoints. Returns null if we can't resolve the listing's
+   * variant or the API call fails — caller falls back to the headline
+   * market price (with a condition-match gate to avoid misleading intel).
+   */
+  async function findPerSkuMarket(item) {
+    const productId = getProductIdForItem(item);
+    if (!productId) return null;
+    const text = findListingCondition(item);
+    if (!text) return null;
+    const { condition, variant } = parseConditionAndVariant(text);
+    if (!condition) return null;
+    const pricing = await fetchProductSkuPricing(productId);
+    if (!pricing) return null;
+    const v = pricing.get(skuLookupKey(condition, variant));
+    return Number.isFinite(v) ? v : null;
+  }
+
+  /**
+   * @param {HTMLElement} item
+   * @param {number} market
+   * @param {{ perSku?: boolean }} [opts]
+   */
+  function addPriceChips(item, market, opts) {
     if (item.dataset.tcgplusChips === '1') return;
     const priceEl = findListingPriceEl(item);
     if (!priceEl) return;
     const price = parsePrice(priceEl.textContent);
     if (!price) return;
 
-    // The headline market price is for a single condition (Near Mint by
-    // default, or whatever the URL's Condition= param selects). A
-    // search-list-view tile can show listings of *other* conditions in
-    // the same `.search-result`. Chipping a Lightly Played listing
-    // against the Near Mint market is misleading (#69) — skip the
-    // price-vs-market and DEAL chips for mismatched conditions but
-    // keep the shipping chip, which doesn't depend on market.
-    const listingCondition = findListingCondition(item);
-    const headlineConditions = getUrlConditions(location.href);
-    const conditionMatches = listingMatchesHeadlineCondition(listingCondition, headlineConditions);
+    // When the market price came from the per-SKU lookup, it's already
+    // condition+variant specific — no gate needed. When we fell back to
+    // the page's headline market, gate on the FULL listing condition
+    // text (including any variant suffix) so a "Near Mint Holofoil"
+    // listing in a Near-Mint-Normal-headlined tile doesn't get a
+    // misleading delta. See #69.
+    let conditionMatches = true;
+    if (!(opts && opts.perSku)) {
+      const text = findListingCondition(item);
+      const headlineConditions = getUrlConditions(location.href);
+      conditionMatches = listingMatchesHeadlineCondition(text, headlineConditions);
+    }
 
     const deltaChipHtml = conditionMatches ? buildDeltaChipHtml(price, market) : '';
 
@@ -310,6 +423,27 @@
     // to render, leave the listing as-is.
 
     item.dataset.tcgplusChips = '1';
+  }
+
+  /**
+   * Try the per-SKU market price first; fall back to the headline market
+   * price if per-SKU resolution fails. Single point of entry for the
+   * chip-rendering pipeline so both callers (backfill + main handler)
+   * stay consistent.
+   */
+  async function addPriceChipsWithMarket(item) {
+    if (item.dataset.tcgplusChips === '1') return false;
+    const perSku = await findPerSkuMarket(item);
+    if (Number.isFinite(perSku)) {
+      addPriceChips(item, perSku, { perSku: true });
+      return true;
+    }
+    const headline = findMarketPrice(item);
+    if (Number.isFinite(headline)) {
+      addPriceChips(item, headline);
+      return true;
+    }
+    return false;
   }
 
   function renderDealChipHtml(item) {
@@ -354,8 +488,9 @@
 
   function backfillPriceChips() {
     document.querySelectorAll('.listing-item[data-tcgplus="done"]:not([data-tcgplus-chips])').forEach((el) => {
-      const market = findMarketPrice(el);
-      if (market) addPriceChips(el, market);
+      // Fire-and-forget — backfill is best-effort; the next pass picks
+      // up anything that's still un-chipped.
+      addPriceChipsWithMarket(/** @type {HTMLElement} */ (el)).catch(() => {});
     });
   }
 
@@ -558,10 +693,9 @@
     item.dataset.tcgplusTier = tier;
     item.dataset.tcgplus = 'done';
 
-    const market = findMarketPrice(item);
-    if (market) {
+    const chipped = await addPriceChipsWithMarket(item);
+    if (chipped) {
       clearDegraded('market-price');
-      addPriceChips(item, market);
     } else {
       markDegraded('market-price', "Couldn't find this page's market price. Price-vs-market chips won't render.");
     }

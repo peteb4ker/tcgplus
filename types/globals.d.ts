@@ -19,8 +19,13 @@ declare const DEFAULT_NEARBY: ReadonlyArray<string>;
 declare const VALID_TIERS: Set<string>;
 declare const FREE_SHIP_THRESHOLD: number;
 
+declare const TCG_CONDITIONS: ReadonlyArray<string>;
 declare function parsePrice(text: string | null | undefined): number | null;
 declare function parseShippingCost(text: string | null | undefined): number | null;
+declare function parseConditionAndVariant(text: string | null | undefined): {
+  condition: string | null;
+  variant: string | null;
+};
 declare function getUrlConditions(url: string | URL | null | undefined): string[];
 declare function listingMatchesHeadlineCondition(
   listingCondition: string | null | undefined,
