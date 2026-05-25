@@ -53,6 +53,57 @@ test('parseShippingCost: nothing matches', () => {
   assert.equal(lib.parseShippingCost('Add to Cart'), null);
 });
 
+test('parseConditionAndVariant: base/normal cards (no variant suffix)', () => {
+  // The listing-condition cell renders just the condition for base SKUs;
+  // the API's SKU `variant` field for these is 'Normal'.
+  assert.deepEqual(lib.parseConditionAndVariant('Near Mint'), { condition: 'Near Mint', variant: 'Normal' });
+  assert.deepEqual(lib.parseConditionAndVariant('Lightly Played'), {
+    condition: 'Lightly Played',
+    variant: 'Normal',
+  });
+  assert.deepEqual(lib.parseConditionAndVariant('Damaged'), { condition: 'Damaged', variant: 'Normal' });
+});
+
+test('parseConditionAndVariant: variant suffix (Holofoil / Reverse Holofoil)', () => {
+  assert.deepEqual(lib.parseConditionAndVariant('Near Mint Holofoil'), {
+    condition: 'Near Mint',
+    variant: 'Holofoil',
+  });
+  assert.deepEqual(lib.parseConditionAndVariant('Near Mint Reverse Holofoil'), {
+    condition: 'Near Mint',
+    variant: 'Reverse Holofoil',
+  });
+  assert.deepEqual(lib.parseConditionAndVariant('Lightly Played Holofoil'), {
+    condition: 'Lightly Played',
+    variant: 'Holofoil',
+  });
+  assert.deepEqual(lib.parseConditionAndVariant('Moderately Played Reverse Holofoil'), {
+    condition: 'Moderately Played',
+    variant: 'Reverse Holofoil',
+  });
+});
+
+test('parseConditionAndVariant: whitespace, casing, unknown', () => {
+  // Whitespace tolerance.
+  assert.deepEqual(lib.parseConditionAndVariant('  Near Mint  '), {
+    condition: 'Near Mint',
+    variant: 'Normal',
+  });
+  assert.deepEqual(lib.parseConditionAndVariant('Near Mint   Holofoil  '), {
+    condition: 'Near Mint',
+    variant: 'Holofoil',
+  });
+  // Case-insensitive prefix match, but the canonical condition is returned.
+  assert.deepEqual(lib.parseConditionAndVariant('near mint holofoil'), {
+    condition: 'Near Mint',
+    variant: 'holofoil',
+  });
+  // Unknown / missing → both null so caller falls back to headline.
+  assert.deepEqual(lib.parseConditionAndVariant('Mint Holofoil'), { condition: null, variant: null });
+  assert.deepEqual(lib.parseConditionAndVariant(''), { condition: null, variant: null });
+  assert.deepEqual(lib.parseConditionAndVariant(null), { condition: null, variant: null });
+});
+
 test('getUrlConditions: defaults to Near Mint when no Condition param', () => {
   assert.deepEqual(lib.getUrlConditions('https://www.tcgplayer.com/search/pokemon/foo'), ['Near Mint']);
   assert.deepEqual(lib.getUrlConditions('https://www.tcgplayer.com/product/676096/x?Language=English'), ['Near Mint']);

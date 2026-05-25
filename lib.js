@@ -108,6 +108,50 @@ function parseShippingCost(text) {
 }
 
 /**
+ * The five TCGplayer condition tiers, ordered longest-name-first to
+ * make prefix matching unambiguous (e.g. "Lightly Played" must be
+ * tested before "Light" if any future shorter tier appears).
+ */
+const TCG_CONDITIONS = ['Near Mint', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Damaged'];
+
+/**
+ * Split a TCGplayer listing's condition text into a `{condition, variant}`
+ * pair. The condition cell renders the variant inline as a suffix:
+ *
+ *   - "Near Mint"                  → { condition: 'Near Mint', variant: 'Normal' }
+ *   - "Near Mint Holofoil"         → { condition: 'Near Mint', variant: 'Holofoil' }
+ *   - "Lightly Played Reverse Holofoil"
+ *                                 → { condition: 'Lightly Played', variant: 'Reverse Holofoil' }
+ *
+ * Returns `{ condition: null, variant: null }` when the text doesn't
+ * start with a known TCGplayer condition tier — caller falls back to
+ * the headline market price in that case (preserves existing behaviour
+ * if TCGplayer adds a new condition tier).
+ *
+ * The variant name matches what `mp-search-api`'s product/details
+ * endpoint returns under `skus[].variant`, including 'Normal' for the
+ * base SKU.
+ *
+ * @param {string | null | undefined} text
+ * @returns {{ condition: string | null, variant: string | null }}
+ */
+function parseConditionAndVariant(text) {
+  if (!text) return { condition: null, variant: null };
+  const trimmed = text.trim();
+  if (!trimmed) return { condition: null, variant: null };
+  for (const c of TCG_CONDITIONS) {
+    const lower = trimmed.toLowerCase();
+    const cLower = c.toLowerCase();
+    if (lower === cLower) return { condition: c, variant: 'Normal' };
+    if (lower.startsWith(cLower + ' ')) {
+      const variant = trimmed.slice(c.length).trim();
+      return { condition: c, variant: variant || 'Normal' };
+    }
+  }
+  return { condition: null, variant: null };
+}
+
+/**
  * Get the conditions selected via a TCGplayer URL's `Condition` query
  * parameter. TCGplayer's headline market price (the one we read for
  * chip math) is for a single condition — Near Mint by default, or the
@@ -395,6 +439,8 @@ if (typeof module !== 'undefined' && module.exports) {
     FREE_SHIP_THRESHOLD,
     parsePrice,
     parseShippingCost,
+    TCG_CONDITIONS,
+    parseConditionAndVariant,
     getUrlConditions,
     listingMatchesHeadlineCondition,
     extractSellerKey,

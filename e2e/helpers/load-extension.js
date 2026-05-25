@@ -35,7 +35,13 @@ async function launchWithExtension() {
  * file or a small in-memory JSON stub. Pass a config to override defaults.
  *
  * @param {import('@playwright/test').Page} page
- * @param {{ productHtml?: string; sellers?: Record<string, object>; cart?: object | null }} [opts]
+ * @param {{
+ *   productHtml?: string;
+ *   sellers?: Record<string, object>;
+ *   cart?: object | null;
+ *   productSkus?: Record<number, Array<{ sku: number; condition: string; variant: string; language?: string }>>;
+ *   skuMarketPrices?: Record<number, { marketPrice: number | null; lowestPrice?: number; highestPrice?: number }>;
+ * }} [opts]
  */
 async function mockTCGplayer(page, opts = {}) {
   const productHtml = opts.productHtml || (await fs.readFile(path.join(FIXTURES, 'product-page.html'), 'utf8'));
@@ -44,6 +50,8 @@ async function mockTCGplayer(page, opts = {}) {
     bbbbbbbb: { addressCity: 'Portland', addressTerritory: 'OR', addressCountryCode: 'US' },
     cccccccc: { addressCity: 'Austin', addressTerritory: 'TX', addressCountryCode: 'US' },
   };
+  const productSkus = opts.productSkus || {};
+  const skuMarketPrices = opts.skuMarketPrices || {};
   /** @type {object | null} */
   const cart =
     opts.cart === undefined
@@ -96,6 +104,46 @@ async function mockTCGplayer(page, opts = {}) {
       status: 200,
       contentType: 'text/html; charset=utf-8',
       body: productHtml,
+    });
+  });
+
+  // mp-search-api: per-product SKU list (variant + condition catalog).
+  // Returns empty `skus` when the product isn't in opts.productSkus, which
+  // makes the extension's per-SKU lookup return null and fall back to the
+  // headline market price — the legacy code path tests already exercise.
+  await page.route('https://mp-search-api.tcgplayer.com/v2/product/*/details*', (route) => {
+    const url = new URL(route.request().url());
+    const m = url.pathname.match(/\/product\/(\d+)\//);
+    const productId = m ? Number(m[1]) : null;
+    const skus = (productId != null && productSkus[productId]) || [];
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ productId, skus }),
+    });
+  });
+
+  // mpgateway: per-SKU market prices. The real endpoint expects a POST
+  // body with { skuIds: [...] }; we honour that by returning a row for
+  // each requested skuId, looking up opts.skuMarketPrices for the value.
+  await page.route('https://mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search*', async (route) => {
+    let skuIds = [];
+    try {
+      const body = JSON.parse(route.request().postData() || '{}');
+      if (Array.isArray(body.skuIds)) skuIds = body.skuIds;
+    } catch {
+      // empty/malformed body → empty response
+    }
+    const rows = skuIds.map((skuId) => ({
+      skuId,
+      marketPrice: skuMarketPrices[skuId] ? skuMarketPrices[skuId].marketPrice : null,
+      lowestPrice: skuMarketPrices[skuId] ? (skuMarketPrices[skuId].lowestPrice ?? null) : null,
+      highestPrice: skuMarketPrices[skuId] ? (skuMarketPrices[skuId].highestPrice ?? null) : null,
+    }));
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(rows),
     });
   });
 }

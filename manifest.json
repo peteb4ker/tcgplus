@@ -31,5 +31,9 @@
       "run_at": "document_idle"
     }
   ],
-  "host_permissions": ["https://seller-stores-backend.tcgplayer.com/*", "https://mpgateway.tcgplayer.com/*"]
+  "host_permissions": [
+    "https://seller-stores-backend.tcgplayer.com/*",
+    "https://mpgateway.tcgplayer.com/*",
+    "https://mp-search-api.tcgplayer.com/*"
+  ]
 }

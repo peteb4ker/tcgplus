@@ -1,21 +1,29 @@
 // @ts-check
-// Regression coverage for #69: a single tile / page can show listings of
-// multiple conditions under one headline market price (the Near Mint
-// market price by default, or whatever the URL's Condition= param
-// selects). Chips that depend on market — the price-vs-market delta
-// chip and the DEAL chip — must only render for listings whose
-// condition matches the headline. The shipping chip is independent of
-// market and always renders.
+// Regression coverage for #69: a single product page (and search-list-view
+// tile) can show listings of multiple variants (Normal / Holofoil /
+// Reverse Holofoil) under one headline market price. Each listing must
+// chip against its OWN variant+condition market price, fetched from
+// TCGplayer's per-SKU pricing endpoints — not the headline.
+//
+// Fixture mirrors the real-world Ditto 151 case: NM-Holofoil ~$0.53,
+// NM-Reverse-Holofoil ~$4.67. A $3.20 Reverse-Holofoil NM listing should
+// chip -$1.47 (-31.5%) against the RH market, not +$2.67 (+503.8%)
+// against the Holofoil headline.
 const { test, expect } = require('@playwright/test');
 const { launchWithExtension, mockTCGplayer } = require('./helpers/load-extension.js');
 
-// Inline product-page-shaped fixture with three listings: NM, LP, MP.
-// addPriceChips runs for every .listing-item regardless of search-list
-// vs product-page layout, so testing on a product-page-shaped fixture
-// exercises the same gating code that fixes the search-list-view bug.
-const MULTI_CONDITION_HTML = `<!doctype html>
+const PRODUCT_ID = 516695;
+
+// Fixture page: headline market is $0.53 (the Holofoil NM market — what
+// the .price-points__upper__price element on a real product page carries).
+// Three listings: Holofoil-NM at $0.20, Holofoil-LP at $0.25,
+// Reverse-Holofoil-NM at $3.20. Note: NO Condition= URL param, so the
+// pre-existing condition-gate fallback would happily render misleading
+// chips against the headline — only per-SKU resolution gives the right
+// answer.
+const MULTI_VARIANT_HTML = `<!doctype html>
 <html lang="en">
-  <head><meta charset="utf-8" /><title>multi-condition fixture</title></head>
+  <head><meta charset="utf-8" /><title>multi-variant fixture</title></head>
   <body>
     <header>
       <button class="mp-header__content__cart-count" type="button" aria-label="Cart">
@@ -24,10 +32,10 @@ const MULTI_CONDITION_HTML = `<!doctype html>
     </header>
     <section class="price-points">
       <div>Market Price:</div>
-      <span class="price-points__upper__price">$10.00</span>
+      <span class="price-points__upper__price">$0.53</span>
     </section>
     <section class="listings">
-      <article class="listing-item" data-testid="listing-item--nm">
+      <article class="listing-item" data-testid="listing-item--holo-nm">
         <div class="listing-item__listing-data">
           <div class="listing-item__listing-data__seller">
             <div class="seller-info">
@@ -36,14 +44,14 @@ const MULTI_CONDITION_HTML = `<!doctype html>
             </div>
           </div>
           <div class="listing-item__listing-data__info">
-            <h3 class="listing-item__listing-data__info__condition"><a href="#">Near Mint</a></h3>
-            <div class="listing-item__listing-data__info__price">$9.00</div>
+            <h3 class="listing-item__listing-data__info__condition"><a href="#">Near Mint Holofoil</a></h3>
+            <div class="listing-item__listing-data__info__price">$0.20</div>
             <span>+ $1.31 Shipping</span>
           </div>
         </div>
       </article>
 
-      <article class="listing-item" data-testid="listing-item--lp">
+      <article class="listing-item" data-testid="listing-item--holo-lp">
         <div class="listing-item__listing-data">
           <div class="listing-item__listing-data__seller">
             <div class="seller-info">
@@ -52,14 +60,14 @@ const MULTI_CONDITION_HTML = `<!doctype html>
             </div>
           </div>
           <div class="listing-item__listing-data__info">
-            <h3 class="listing-item__listing-data__info__condition"><a href="#">Lightly Played</a></h3>
-            <div class="listing-item__listing-data__info__price">$5.00</div>
+            <h3 class="listing-item__listing-data__info__condition"><a href="#">Lightly Played Holofoil</a></h3>
+            <div class="listing-item__listing-data__info__price">$0.25</div>
             <span>+ $1.31 Shipping</span>
           </div>
         </div>
       </article>
 
-      <article class="listing-item" data-testid="listing-item--mp">
+      <article class="listing-item" data-testid="listing-item--rh-nm">
         <div class="listing-item__listing-data">
           <div class="listing-item__listing-data__seller">
             <div class="seller-info">
@@ -68,9 +76,9 @@ const MULTI_CONDITION_HTML = `<!doctype html>
             </div>
           </div>
           <div class="listing-item__listing-data__info">
-            <h3 class="listing-item__listing-data__info__condition"><a href="#">Moderately Played</a></h3>
-            <div class="listing-item__listing-data__info__price">$3.50</div>
-            <span> Shipping: <a href="#"> Included </a></span>
+            <h3 class="listing-item__listing-data__info__condition"><a href="#">Near Mint Reverse Holofoil</a></h3>
+            <div class="listing-item__listing-data__info__price">$3.20</div>
+            <span>+ $1.31 Shipping</span>
           </div>
         </div>
       </article>
@@ -78,7 +86,24 @@ const MULTI_CONDITION_HTML = `<!doctype html>
   </body>
 </html>`;
 
-test.describe('Per-condition chip gating (regression for #69)', () => {
+// SKU catalog and per-SKU market prices for the fixture. Values match
+// what mp-search-api / mpgateway return for Ditto 151 in production.
+const SKUS = [
+  { sku: 7432254, condition: 'Near Mint', variant: 'Holofoil', language: 'English' },
+  { sku: 7432255, condition: 'Lightly Played', variant: 'Holofoil', language: 'English' },
+  { sku: 7432256, condition: 'Moderately Played', variant: 'Holofoil', language: 'English' },
+  { sku: 7432259, condition: 'Near Mint', variant: 'Reverse Holofoil', language: 'English' },
+  { sku: 7432260, condition: 'Lightly Played', variant: 'Reverse Holofoil', language: 'English' },
+];
+const SKU_PRICES = {
+  7432254: { marketPrice: 0.53 },
+  7432255: { marketPrice: 0.48 },
+  7432256: { marketPrice: 0.37 },
+  7432259: { marketPrice: 4.67 },
+  7432260: { marketPrice: 1.93 },
+};
+
+test.describe('Per-SKU market prices for multi-variant listings (regression for #69)', () => {
   /** @type {import('@playwright/test').BrowserContext} */
   let ctx;
   /** @type {import('@playwright/test').Page} */
@@ -87,62 +112,72 @@ test.describe('Per-condition chip gating (regression for #69)', () => {
   test.beforeEach(async () => {
     ({ ctx } = await launchWithExtension());
     page = await ctx.newPage();
-    await mockTCGplayer(page, { productHtml: MULTI_CONDITION_HTML, cart: null });
+    await mockTCGplayer(page, {
+      productHtml: MULTI_VARIANT_HTML,
+      productSkus: { [PRODUCT_ID]: SKUS },
+      skuMarketPrices: SKU_PRICES,
+      cart: null,
+    });
   });
 
   test.afterEach(async () => {
     if (ctx) await ctx.close();
   });
 
-  test('default Condition (Near Mint): only NM listing gets price-vs-market chip', async () => {
-    await page.goto('https://www.tcgplayer.com/product/1/test');
+  test('each listing chips against its own SKU market price', async () => {
+    await page.goto(`https://www.tcgplayer.com/product/${PRODUCT_ID}/test`);
     await expect(page.locator('.listing-item[data-tcgplus-chips="1"]')).toHaveCount(3);
 
-    // NM listing: $9 vs $10 = -$1.00 (-10.0%), plus shipping chip.
-    const nmChips = await page.locator('[data-testid="listing-item--nm"] .tcgplus-price-chip').allInnerTexts();
-    expect(nmChips).toContain('-$1.00 (-10.0%)');
-    expect(nmChips).toContain('$1.31 shipping');
+    // Holofoil NM at $0.20 vs Holofoil-NM market $0.53 → -$0.33 (-62.3%).
+    const holoNm = await page.locator('[data-testid="listing-item--holo-nm"] .tcgplus-price-chip').allInnerTexts();
+    expect(holoNm).toContain('-$0.33 (-62.3%)');
+    expect(holoNm).toContain('$1.31 shipping');
 
-    // LP listing: shipping chip ONLY. No price-vs-market, no DEAL — would
-    // have been (-$5.00 (-50.0%)) against the NM market, misleading.
-    const lpChips = await page.locator('[data-testid="listing-item--lp"] .tcgplus-price-chip').allInnerTexts();
-    expect(lpChips).toEqual(['$1.31 shipping']);
-    expect(lpChips.some((s) => /vs market/.test(s))).toBe(false);
-    await expect(page.locator('[data-testid="listing-item--lp"] .tcgplus-deal-chip')).toHaveCount(0);
+    // Holofoil LP at $0.25 vs Holofoil-LP market $0.48 → -$0.23 (-47.9%).
+    // Without per-SKU resolution this would have been chipped against
+    // the $0.53 headline (off by ~10%, and against the wrong condition).
+    const holoLp = await page.locator('[data-testid="listing-item--holo-lp"] .tcgplus-price-chip').allInnerTexts();
+    expect(holoLp).toContain('-$0.23 (-47.9%)');
+    expect(holoLp).toContain('$1.31 shipping');
 
-    // MP listing: shipping chip ONLY (free shipping flavour).
-    const mpChips = await page.locator('[data-testid="listing-item--mp"] .tcgplus-price-chip').allInnerTexts();
-    expect(mpChips).toEqual(['Shipping: Included']);
-    await expect(page.locator('[data-testid="listing-item--mp"] .tcgplus-deal-chip')).toHaveCount(0);
+    // Reverse Holofoil NM at $3.20 vs RH-NM market $4.67 → -$1.47 (-31.5%).
+    // This was the headline anomaly: against the $0.53 Holofoil headline
+    // it computed +$2.67 (+503.8%). With per-SKU resolution it's correctly
+    // showing the listing is BELOW its real variant market.
+    const rhNm = await page.locator('[data-testid="listing-item--rh-nm"] .tcgplus-price-chip').allInnerTexts();
+    expect(rhNm).toContain('-$1.47 (-31.5%)');
+    expect(rhNm).toContain('$1.31 shipping');
+    // And because $3.20 + $1.31 = $4.51 is below the $4.67 RH-NM market,
+    // a DEAL chip rightly renders too (CSS uppercases the text → "DEAL").
+    expect(rhNm).toContain('DEAL');
+
+    // The delta chip's tooltip should reference the per-variant market,
+    // not the $0.53 headline.
+    const rhDelta = page
+      .locator('[data-testid="listing-item--rh-nm"] .tcgplus-price-chip')
+      .filter({ hasText: '-$1.47' });
+    await expect(rhDelta).toHaveAttribute('title', 'vs market $4.67');
   });
 
-  test('Condition=Lightly+Played URL: only LP listing gets price-vs-market chip', async () => {
-    await page.goto('https://www.tcgplayer.com/product/1/test?Condition=Lightly+Played');
+  test('falls back to headline market when per-SKU lookup yields nothing', async () => {
+    // Re-mock with no SKU catalog so per-SKU resolution returns null. The
+    // headline-market path with condition gating from #70 takes over.
+    await mockTCGplayer(page, {
+      productHtml: MULTI_VARIANT_HTML,
+      productSkus: {}, // no SKUs known
+      skuMarketPrices: {},
+      cart: null,
+    });
+    await page.goto(`https://www.tcgplayer.com/product/${PRODUCT_ID}/test`);
     await expect(page.locator('.listing-item[data-tcgplus-chips="1"]')).toHaveCount(3);
 
-    // NM listing now mismatches headline — shipping chip only.
-    const nmChips = await page.locator('[data-testid="listing-item--nm"] .tcgplus-price-chip').allInnerTexts();
-    expect(nmChips).toEqual(['$1.31 shipping']);
-
-    // LP listing matches: $5 vs $10 = -$5.00 (-50.0%), plus shipping chip.
-    const lpChips = await page.locator('[data-testid="listing-item--lp"] .tcgplus-price-chip').allInnerTexts();
-    expect(lpChips).toContain('-$5.00 (-50.0%)');
-    expect(lpChips).toContain('$1.31 shipping');
-  });
-
-  test('Condition=Near+Mint,Lightly+Played: NM and LP both match', async () => {
-    // TCGplayer multi-select condition filters comma-join the URL value.
-    await page.goto('https://www.tcgplayer.com/product/1/test?Condition=Near+Mint,Lightly+Played');
-    await expect(page.locator('.listing-item[data-tcgplus-chips="1"]')).toHaveCount(3);
-
-    const nmChips = await page.locator('[data-testid="listing-item--nm"] .tcgplus-price-chip').allInnerTexts();
-    expect(nmChips).toContain('-$1.00 (-10.0%)');
-
-    const lpChips = await page.locator('[data-testid="listing-item--lp"] .tcgplus-price-chip').allInnerTexts();
-    expect(lpChips).toContain('-$5.00 (-50.0%)');
-
-    // MP still mismatches.
-    const mpChips = await page.locator('[data-testid="listing-item--mp"] .tcgplus-price-chip').allInnerTexts();
-    expect(mpChips).toEqual(['Shipping: Included']);
+    // No listing matches the default Near Mint headline (their conditions
+    // are "Near Mint Holofoil" / "Lightly Played Holofoil" / "Near Mint
+    // Reverse Holofoil"), so the fallback gates them all — every listing
+    // gets the shipping chip only. Better than +503% misinformation.
+    for (const tid of ['listing-item--holo-nm', 'listing-item--holo-lp', 'listing-item--rh-nm']) {
+      const chips = await page.locator(`[data-testid="${tid}"] .tcgplus-price-chip`).allInnerTexts();
+      expect(chips).toEqual(['$1.31 shipping']);
+    }
   });
 });
