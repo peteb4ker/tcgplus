@@ -115,19 +115,21 @@ html.tcgplus-hide-oos .search-result:has(.mp-oos-badge) {
 
 /* Slim status banner mounted just above the search-grid tile list when at
    least one tile carries TCGplayer's out-of-stock badge. Doubles as a
-   toggle for the hide-OOS setting so the user can flip it without trip
-   to settings. Uses the same warm-amber palette as other "FYI" surfaces
-   in TCGplayer so it reads as informational, not error. */
+   toggle for the hide-OOS setting so the user can flip it without a trip
+   to settings. Cool slate palette pairs with TCGplayer's blue accent
+   without competing with the green pricing chips. The toggle is rendered
+   as a primary-style button pushed to the far right so it reads as the
+   actionable element, not a footnote. */
 .tcgplus-oos-banner {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   margin: 12px 0;
-  padding: 10px 14px;
-  border: 1px solid #f0c97a;
+  padding: 12px 16px;
+  border: 1px solid #cdd9e6;
   border-radius: 6px;
-  background: #fff7e0;
-  color: #5a4500;
+  background: #f1f5fb;
+  color: #1a2a3a;
   font:
     14px/1.4 -apple-system,
     BlinkMacSystemFont,
@@ -136,8 +138,9 @@ html.tcgplus-hide-oos .search-result:has(.mp-oos-badge) {
     sans-serif;
 }
 .tcgplus-oos-banner__icon {
+  color: #0a66c2;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
 }
 .tcgplus-oos-banner__text {
@@ -145,19 +148,27 @@ html.tcgplus-hide-oos .search-result:has(.mp-oos-badge) {
 }
 .tcgplus-oos-banner__toggle {
   flex: 0 0 auto;
-  padding: 4px 12px;
-  border: 1px solid #b88a2f;
+  margin-left: auto;
+  padding: 8px 18px;
+  border: 0;
   border-radius: 4px;
-  background: #fff;
-  color: #5a4500;
+  background: #0a66c2;
+  color: #fff;
   font: inherit;
+  font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(10, 102, 194, 0.25);
+  transition: background-color 0.12s ease;
 }
 .tcgplus-oos-banner__toggle:hover {
-  background: #fef5d4;
+  background: #084d92;
 }
 .tcgplus-oos-banner__toggle:active {
-  background: #f0c97a;
+  background: #06386c;
+}
+.tcgplus-oos-banner__toggle:focus-visible {
+  outline: 2px solid #0a66c2;
+  outline-offset: 2px;
 }
 
 html.tcgplus-filter-home .listing-item:not([data-tcgplus-tier='home']) {
