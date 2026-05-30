@@ -1,6 +1,6 @@
 ---
 name: record-demo
-description: Re-record the README demo GIF at docs/images/demo.gif against live TCGplayer. Trigger when the user asks to refresh, redo, or rerecord the demo GIF, or when UI changes have made the existing recording stale.
+description: Re-record the README demo GIF at docs/images/demo.gif against live TCGplayer using Playwright + ffmpeg. Use when the user asks to refresh the demo GIF, redo the README hero recording, retake the screen recording, or when UI changes (panel layout, chip styling, settings page) have made the existing recording stale.
 ---
 
 # record-demo
