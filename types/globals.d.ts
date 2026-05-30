@@ -55,6 +55,13 @@ declare function createDegradationTracker(opts?: {
   clearTimeoutFn?: typeof clearTimeout;
 }): DegradationTracker;
 
+type OosBannerDescription = {
+  text: string;
+  button: string;
+  nextHide: boolean;
+};
+declare function describeOosBanner(oosCount: number, hideOOS: boolean): OosBannerDescription | null;
+
 // storage.js — chrome.storage.local helpers shared by content.js and the options page.
 
 type StorageKeyMap = {

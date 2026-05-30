@@ -32,6 +32,7 @@
 
   function applyHideOOS() {
     document.documentElement.classList.toggle('tcgplus-hide-oos', hideOOS);
+    renderOosBanner();
   }
 
   /**
@@ -689,6 +690,8 @@
 
   // -- Panel --------------------------------------------------------------
   let panel;
+  /** @type {HTMLElement | null} */
+  let oosBanner = null;
 
   // Many "degraded" states are actually transient during normal page hydration:
   // the listing-item DOM lands before the market-price element, the cart fetch
@@ -853,6 +856,68 @@
     panel.innerHTML = `<div class="tcgplus-panel-title">Vendor Locations${gear}</div>${warningsHtml}${rowsHtml}`;
   }
 
+  // Mount a banner above the search-grid tile list whenever the page
+  // contains at least one tile carrying TCGplayer's out-of-stock badge.
+  // The banner doubles as a toggle for the hide-OOS setting so a user
+  // searching for a specific card can spot when tiles have been hidden
+  // and put them back without leaving the page. Idempotent: re-runs from
+  // the MutationObserver and from the storage listener; only writes when
+  // the rendered text or button label needs to change.
+  function renderOosBanner() {
+    // Drop a stale reference if the SPA replaced the body subtree under us.
+    if (oosBanner && !document.body.contains(oosBanner)) {
+      oosBanner = null;
+    }
+
+    const grid = document.querySelector('.search-results');
+    const oosCount = grid ? grid.querySelectorAll('.search-result:has(.mp-oos-badge)').length : 0;
+    const description = grid ? describeOosBanner(oosCount, hideOOS) : null;
+
+    // Nothing to surface: tear down any existing banner and bail.
+    if (!description) {
+      if (oosBanner) {
+        oosBanner.remove();
+        oosBanner = null;
+      }
+      return;
+    }
+
+    if (!oosBanner) {
+      oosBanner = document.createElement('div');
+      oosBanner.className = 'tcgplus-oos-banner';
+      oosBanner.setAttribute('role', 'status');
+      oosBanner.addEventListener('click', (e) => {
+        const target = /** @type {Element | null} */ (e.target);
+        if (!target || !target.closest('.tcgplus-oos-banner__toggle')) return;
+        const next = oosBanner && oosBanner.dataset.nextHide === '1';
+        // Persist; the storage listener flips local `hideOOS` and re-renders.
+        saveSetting(STORAGE_KEYS.hideOOS, next);
+      });
+    }
+
+    // Insert as previous sibling of `.search-results` so the banner appears
+    // between TCGplayer's result-count toolbar and the tile grid. Only mount
+    // if not already in place to avoid layout churn.
+    if (grid && grid.parentNode && oosBanner.parentNode !== grid.parentNode) {
+      grid.parentNode.insertBefore(oosBanner, grid);
+    } else if (grid && oosBanner.nextSibling !== grid) {
+      // The grid moved (Vue re-render); reposition.
+      grid.parentNode.insertBefore(oosBanner, grid);
+    }
+
+    const wantHtml =
+      `<span class="tcgplus-oos-banner__icon" aria-hidden="true">⊘</span>` +
+      `<span class="tcgplus-oos-banner__text">${description.text}</span>` +
+      `<button type="button" class="tcgplus-oos-banner__toggle">${description.button}</button>`;
+    if (oosBanner.innerHTML !== wantHtml) {
+      oosBanner.innerHTML = wantHtml;
+    }
+    const wantNext = description.nextHide ? '1' : '0';
+    if (oosBanner.dataset.nextHide !== wantNext) {
+      oosBanner.dataset.nextHide = wantNext;
+    }
+  }
+
   function scan() {
     document.querySelectorAll('.listing-item:not([data-tcgplus])').forEach((el) => {
       annotate(el);
@@ -877,6 +942,7 @@
     // listings page (annotate() only triggers a re-render when adding new
     // listings; nothing else notices when listings are removed).
     renderPanel();
+    renderOosBanner();
   }
 
   let scanTimer = null;

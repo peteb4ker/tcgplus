@@ -429,6 +429,41 @@ function createDegradationTracker(opts) {
   return { mark, clear, entries };
 }
 
+/**
+ * Compose the text and toggle button for the OOS banner that mounts above
+ * the search-grid tile list. Returns null when there's nothing to surface
+ * (no tiles on the page are flagged out of stock).
+ *
+ * Branches purely on the hide-OOS toggle state:
+ *   - hide on  → "X tiles hidden ..." + button to show
+ *   - hide off → "X tiles marked ..." + button to hide
+ *
+ * The button label and the target hide-OOS value are returned together so
+ * the click handler in content.js can just persist `nextHide` without any
+ * extra branching.
+ *
+ * @param {number} oosCount  number of `.search-result:has(.mp-oos-badge)` tiles
+ * @param {boolean} hideOOS  current value of the hide-OOS setting
+ * @returns {{ text: string, button: string, nextHide: boolean } | null}
+ */
+function describeOosBanner(oosCount, hideOOS) {
+  if (!Number.isFinite(oosCount) || oosCount <= 0) return null;
+  const n = Math.floor(oosCount);
+  const tile = n === 1 ? 'tile' : 'tiles';
+  if (hideOOS) {
+    return {
+      text: `${n} ${tile} hidden — marked out of stock by TCGplayer`,
+      button: 'Show them',
+      nextHide: false,
+    };
+  }
+  return {
+    text: `${n} ${tile} marked out of stock by TCGplayer`,
+    button: 'Hide them',
+    nextHide: true,
+  };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     STATES,
@@ -454,5 +489,6 @@ if (typeof module !== 'undefined' && module.exports) {
     tierLabel,
     isOurNode,
     createDegradationTracker,
+    describeOosBanner,
   };
 }

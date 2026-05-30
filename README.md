@@ -72,7 +72,7 @@ Click the gear icon on the floating panel, click the TCGPlus icon in your browse
 - **Nearby states**: tick zero or more. The home state is auto-disabled so you can't pick it twice. Default is the western US set (OR, WA, NV, AZ, ID, UT, MT, WY, CO, NM, AK, HI).
 - **Hide on page**: checkboxes to hide TCGplayer's price-breakdown panel, recommendations carousel, and footer.
 - **Always Near Mint**: when on, any product or search page URL without `Condition=Near+Mint` is rewritten to include it before the listings render. Off by default.
-- **Always hide out of stock**: when on, any tile on a search page that's marked Out of Stock is hidden. TCGplayer's own out-of-stock filter sometimes misses these. Off by default.
+- **Always hide out of stock**: when on, any tile on a search page that's marked Out of Stock is hidden. TCGplayer's own out-of-stock filter sometimes misses these. Off by default. Whenever a search-grid page has at least one OOS-flagged tile, a slim banner appears above the grid with a count (e.g. "8 tiles marked out of stock by TCGplayer") and a toggle button — so a hidden tile is never silent, and you can flip the setting without leaving the page.
 
 Settings are stored in `chrome.storage.local`. Changes apply live to any open TCGplayer tab — no reload needed.
 
