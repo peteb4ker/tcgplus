@@ -117,13 +117,13 @@ html.tcgplus-hide-oos .search-result:has(.mp-oos-badge) {
    least one tile carries TCGplayer's out-of-stock badge. Doubles as a
    toggle for the hide-OOS setting so the user can flip it without a trip
    to settings. Cool slate palette pairs with TCGplayer's blue accent
-   without competing with the green pricing chips. The toggle is rendered
-   as a primary-style button pushed to the far right so it reads as the
-   actionable element, not a footnote. */
+   without competing with the green pricing chips. The toggle sits
+   immediately after the message so it lands in the same eye-line as the
+   text the user just read. */
 .tcgplus-oos-banner {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   margin: 12px 0;
   padding: 12px 16px;
   border: 1px solid #cdd9e6;
@@ -138,17 +138,17 @@ html.tcgplus-hide-oos .search-result:has(.mp-oos-badge) {
     sans-serif;
 }
 .tcgplus-oos-banner__icon {
+  flex: 0 0 auto;
   color: #0a66c2;
   font-weight: 700;
   font-size: 18px;
   line-height: 1;
 }
 .tcgplus-oos-banner__text {
-  flex: 1;
+  flex: 0 1 auto;
 }
 .tcgplus-oos-banner__toggle {
   flex: 0 0 auto;
-  margin-left: auto;
   padding: 8px 18px;
   border: 0;
   border-radius: 4px;
