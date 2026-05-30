@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Search · grid view fixture</title>
+    <title>Search · grid + OOS fixture</title>
     <style>
       body {
         font-family: sans-serif;
@@ -17,6 +17,14 @@
         border: 1px solid #ddd;
         padding: 12px;
         width: 200px;
+        position: relative;
+      }
+      .mp-oos-badge {
+        background: #b00;
+        color: #fff;
+        padding: 2px 6px;
+        font-size: 11px;
+        border-radius: 3px;
       }
       .product-card__market-price--value {
         color: #05772d;
@@ -36,12 +44,15 @@
       </button>
     </header>
 
+    <div class="search-toolbar">
+      <h1 class="search-result-count">5 results for: "test" in All Products</h1>
+    </div>
+
     <section class="search-results">
       <div class="search-result" data-testid="search-result--0">
         <a href="/product/1/test?seller=aaaaaaaa&page=1">
           <section class="product-card__product product-card__product-variant-a">
-            <h4 class="product-card__set-name"><div class="product-card__set-name__variant">Test Set</div></h4>
-            <span class="product-card__title">Card A</span>
+            <span class="product-card__title">Card A (in stock)</span>
             <div class="inventory">
               <div class="inventory__container">
                 <span class="inventory__listing-count"><span>1 listing</span> from </span>
@@ -61,8 +72,22 @@
       <div class="search-result" data-testid="search-result--1">
         <a href="/product/2/test?seller=bbbbbbbb&page=1">
           <section class="product-card__product product-card__product-variant-a">
-            <h4 class="product-card__set-name"><div class="product-card__set-name__variant">Test Set</div></h4>
-            <span class="product-card__title">Card B</span>
+            <span class="mp-oos-badge">Out of Stock</span>
+            <span class="product-card__title">Card B (OOS)</span>
+            <section class="product-card__market-price">
+              <section>
+                <span>Market Price:</span>
+                <span class="product-card__market-price--value">$10.00</span>
+              </section>
+            </section>
+          </section>
+        </a>
+      </div>
+
+      <div class="search-result" data-testid="search-result--2">
+        <a href="/product/3/test?seller=cccccccc&page=1">
+          <section class="product-card__product product-card__product-variant-a">
+            <span class="product-card__title">Card C (in stock)</span>
             <div class="inventory">
               <div class="inventory__container">
                 <span class="inventory__listing-count"><span>1 listing</span> from </span>
@@ -79,11 +104,25 @@
         </a>
       </div>
 
-      <div class="search-result" data-testid="search-result--2">
-        <a href="/product/3/test?seller=cccccccc&page=1">
+      <div class="search-result" data-testid="search-result--3">
+        <a href="/product/4/test?seller=aaaaaaaa&page=1">
           <section class="product-card__product product-card__product-variant-a">
-            <h4 class="product-card__set-name"><div class="product-card__set-name__variant">Test Set</div></h4>
-            <span class="product-card__title">Card C</span>
+            <span class="mp-oos-badge">Out of Stock</span>
+            <span class="product-card__title">Card D (OOS)</span>
+            <section class="product-card__market-price">
+              <section>
+                <span>Market Price:</span>
+                <span class="product-card__market-price--value">$10.00</span>
+              </section>
+            </section>
+          </section>
+        </a>
+      </div>
+
+      <div class="search-result" data-testid="search-result--4">
+        <a href="/product/5/test?seller=bbbbbbbb&page=1">
+          <section class="product-card__product product-card__product-variant-a">
+            <span class="product-card__title">Card E (in stock)</span>
             <div class="inventory">
               <div class="inventory__container">
                 <span class="inventory__listing-count"><span>1 listing</span> from </span>

@@ -113,6 +113,53 @@ html.tcgplus-hide-oos .search-result:has(.mp-oos-badge) {
   display: none !important;
 }
 
+/* Slim status banner mounted just above the search-grid tile list when at
+   least one tile carries TCGplayer's out-of-stock badge. Doubles as a
+   toggle for the hide-OOS setting so the user can flip it without trip
+   to settings. Uses the same warm-amber palette as other "FYI" surfaces
+   in TCGplayer so it reads as informational, not error. */
+.tcgplus-oos-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 10px 14px;
+  border: 1px solid #f0c97a;
+  border-radius: 6px;
+  background: #fff7e0;
+  color: #5a4500;
+  font:
+    14px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+}
+.tcgplus-oos-banner__icon {
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
+}
+.tcgplus-oos-banner__text {
+  flex: 1;
+}
+.tcgplus-oos-banner__toggle {
+  flex: 0 0 auto;
+  padding: 4px 12px;
+  border: 1px solid #b88a2f;
+  border-radius: 4px;
+  background: #fff;
+  color: #5a4500;
+  font: inherit;
+  cursor: pointer;
+}
+.tcgplus-oos-banner__toggle:hover {
+  background: #fef5d4;
+}
+.tcgplus-oos-banner__toggle:active {
+  background: #f0c97a;
+}
+
 html.tcgplus-filter-home .listing-item:not([data-tcgplus-tier='home']) {
   display: none !important;
 }
