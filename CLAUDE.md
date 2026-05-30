@@ -137,6 +137,19 @@ When you're ready to ship:
 
 There is no separate `CHANGELOG.md`. Release notes are auto-generated on the GitHub Releases tab from the merged PRs.
 
+### Recovering from a failed Chrome Web Store publish
+
+The CWS publish step occasionally fails with `ITEM_NOT_UPDATABLE` when a previous version is still in review or "Ready to publish" (not the same as "Published") on the developer dashboard. `release.yml` is idempotent on rerun: the create-release step short-circuits if a release already exists for the tag, so the recovery path is:
+
+1. Wait for the in-flight version to reach **Published** in the dev console (dashboard banner, not the email).
+2. Re-fire the workflow via `workflow_dispatch` against the existing tag, either from the Actions tab UI or:
+   ```sh
+   gh workflow run release.yml --repo peteb4ker/tcgplus -f tag=vX.Y.Z
+   ```
+   The build-zip and CWS-publish steps run; the create-release step skips because the release already exists.
+
+Do **not** bump to the next patch just to recover, and do **not** delete + recreate the tag (GitHub repo rules block recent-tag recreation).
+
 ### Chrome Web Store secrets
 
 `release.yml` looks for these four repository secrets and skips the publish step if any is missing:

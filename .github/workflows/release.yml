@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to (re-)publish (e.g. v0.4.0). Must already exist on the repo.'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -19,13 +25,25 @@ jobs:
       CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
       CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
       CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+      # Resolve the target tag from either trigger. Tag-push sets
+      # `github.ref_name` to the tag; workflow_dispatch carries it as an
+      # input. Both downstream steps read $TAG so they don't have to care
+      # which trigger fired.
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          # `ref` defaults to the branch for workflow_dispatch, which is
+          # wrong for a tag (re-)publish — we want the source tree as of
+          # that tag. For tag-push triggers the input is empty and
+          # checkout falls back to GITHUB_REF, which IS the tag, so the
+          # behavior is unchanged for the happy path.
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Build extension zip
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
           ZIP="tcgplus-${VERSION}.zip"
           # Bundle only the files the extension actually loads at runtime.
           # icons/icon.svg is build-time-only (used by tools/render-promo-tile.js)
@@ -38,9 +56,30 @@ jobs:
             -x "icons/icon.svg"
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
 
+      - name: Check if GitHub Release already exists
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Release $TAG already exists; skipping create-release step. The Chrome Web Store publish will still run."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub Release
+        # softprops/action-gh-release@v3 marks the release immutable. On a
+        # rerun (e.g. after a transient Chrome Web Store failure) trying to
+        # re-upload the same asset fails with "Cannot delete asset from an
+        # immutable release". Skip the step entirely when the release for
+        # this tag already exists — the zip got attached on the first run
+        # and the only thing left to do is the CWS publish below. See #78.
+        if: steps.rel.outputs.exists != 'true'
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ env.TAG }}
           files: ${{ env.ZIP }}
           generate_release_notes: true
 
