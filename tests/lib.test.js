@@ -384,7 +384,7 @@ test('describeOosBanner returns null when no tiles are flagged', () => {
 test('describeOosBanner: hide-OOS on shows the un-hide CTA', () => {
   const r = lib.describeOosBanner(8, true);
   assert.deepEqual(r, {
-    text: '8 tiles hidden — marked out of stock by TCGplayer',
+    text: '8 tiles hidden — no listings match your filters',
     button: 'Show them',
     nextHide: false,
   });
@@ -393,20 +393,20 @@ test('describeOosBanner: hide-OOS on shows the un-hide CTA', () => {
 test('describeOosBanner: hide-OOS off shows the hide CTA', () => {
   const r = lib.describeOosBanner(8, false);
   assert.deepEqual(r, {
-    text: '8 tiles marked out of stock by TCGplayer',
+    text: '8 tiles with no listings matching your filters',
     button: 'Hide them',
     nextHide: true,
   });
 });
 
 test('describeOosBanner pluralises at 1 tile', () => {
-  assert.equal(lib.describeOosBanner(1, false).text, '1 tile marked out of stock by TCGplayer');
-  assert.equal(lib.describeOosBanner(1, true).text, '1 tile hidden — marked out of stock by TCGplayer');
+  assert.equal(lib.describeOosBanner(1, false).text, '1 tile with no listings matching your filters');
+  assert.equal(lib.describeOosBanner(1, true).text, '1 tile hidden — no listings match your filters');
 });
 
 test('describeOosBanner floors fractional counts', () => {
   // We never pass fractional counts from production code, but guard against
   // accidental float inputs (e.g. an `offsetWidth / N` computation slipped
   // into a future caller) by flooring to a whole tile.
-  assert.equal(lib.describeOosBanner(2.7, false).text, '2 tiles marked out of stock by TCGplayer');
+  assert.equal(lib.describeOosBanner(2.7, false).text, '2 tiles with no listings matching your filters');
 });
