@@ -32,7 +32,9 @@ test.describe('OOS banner on search-grid page', () => {
     await page.goto('https://www.tcgplayer.com/search/all/test');
     const banner = page.locator('.tcgplus-oos-banner');
     await expect(banner).toBeVisible();
-    await expect(banner.locator('.tcgplus-oos-banner__text')).toContainText('2 tiles marked out of stock by TCGplayer');
+    await expect(banner.locator('.tcgplus-oos-banner__text')).toContainText(
+      '2 tiles with no listings matching your filters'
+    );
     await expect(banner.locator('.tcgplus-oos-banner__toggle')).toHaveText('Hide them');
 
     // Sibling of .search-results: appears just above the grid.
@@ -56,7 +58,7 @@ test.describe('OOS banner on search-grid page', () => {
     // Click hide → 2 tiles disappear, banner text + button flip.
     await banner.locator('.tcgplus-oos-banner__toggle').click();
     await expect(banner.locator('.tcgplus-oos-banner__text')).toContainText(
-      '2 tiles hidden — marked out of stock by TCGplayer'
+      '2 tiles hidden — no listings match your filters'
     );
     await expect(banner.locator('.tcgplus-oos-banner__toggle')).toHaveText('Show them');
     await expect(page.locator('.search-result:visible')).toHaveCount(3);
@@ -65,7 +67,9 @@ test.describe('OOS banner on search-grid page', () => {
 
     // Click show → tiles return, banner text + button flip back.
     await banner.locator('.tcgplus-oos-banner__toggle').click();
-    await expect(banner.locator('.tcgplus-oos-banner__text')).toContainText('2 tiles marked out of stock by TCGplayer');
+    await expect(banner.locator('.tcgplus-oos-banner__text')).toContainText(
+      '2 tiles with no listings matching your filters'
+    );
     await expect(banner.locator('.tcgplus-oos-banner__toggle')).toHaveText('Hide them');
     await expect(page.locator('.search-result:visible')).toHaveCount(5);
     await expect(page.locator('html.tcgplus-hide-oos')).toHaveCount(0);

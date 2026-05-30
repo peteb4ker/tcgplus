@@ -22,7 +22,7 @@ In settings:
 - Pick your home state and any number of nearby states.
 - Hide TCGplayer's price-breakdown panel, recommendations carousel, and footer.
 - Force every product / search URL to include `Condition=Near+Mint` automatically.
-- Hide every search-result tile that's marked Out of Stock — TCGplayer's own out-of-stock filter sometimes misses these.
+- Hide every search-result tile that has no listings matching the current search. TCGplayer flags these with an "Out of Stock" badge, but it usually means a language or condition mismatch (e.g., a Japanese card on an English-only search) rather than true unavailability.
 
 Privacy and trust:
 

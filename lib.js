@@ -430,15 +430,21 @@ function createDegradationTracker(opts) {
 }
 
 /**
- * Compose the text and toggle button for the OOS banner that mounts above
- * the search-grid tile list. Returns null when there's nothing to surface
- * (no tiles on the page are flagged out of stock).
+ * Compose the text and toggle button for the banner that mounts above the
+ * search-grid tile list. Returns null when there's nothing to surface (no
+ * tiles on the page carry TCGplayer's "Out of Stock" badge).
  *
- * Branches purely on the hide-OOS toggle state:
+ * The badge name is misleading: TCGplayer flags a tile when no listings
+ * match the active URL filters (typically language + condition), not when
+ * the product is genuinely unavailable. The banner copy reflects what's
+ * actually true — a Japanese card on a Language=English search ends up
+ * here, even though listings exist if you relax the language filter.
+ *
+ * Branches purely on the toggle state:
  *   - hide on  → "X tiles hidden ..." + button to show
- *   - hide off → "X tiles marked ..." + button to hide
+ *   - hide off → "X tiles with no ..." + button to hide
  *
- * The button label and the target hide-OOS value are returned together so
+ * The button label and the target setting value are returned together so
  * the click handler in content.js can just persist `nextHide` without any
  * extra branching.
  *
@@ -452,13 +458,13 @@ function describeOosBanner(oosCount, hideOOS) {
   const tile = n === 1 ? 'tile' : 'tiles';
   if (hideOOS) {
     return {
-      text: `${n} ${tile} hidden — marked out of stock by TCGplayer`,
+      text: `${n} ${tile} hidden — no listings match your filters`,
       button: 'Show them',
       nextHide: false,
     };
   }
   return {
-    text: `${n} ${tile} marked out of stock by TCGplayer`,
+    text: `${n} ${tile} with no listings matching your filters`,
     button: 'Hide them',
     nextHide: true,
   };
