@@ -84,9 +84,7 @@ test.describe('SPA navigation across products and home', () => {
     );
 
     await page.goto('https://www.tcgplayer.com/');
-    await page.waitForEvent('console', (m) => m.text().includes('vendor location extension loaded'), {
-      timeout: 5000,
-    });
+    await page.waitForFunction(() => document.documentElement.dataset.tcgplusReady === '1', { timeout: 5000 });
     // Step 1: homepage — no panel.
     await expect(page.locator('.tcgplus-panel')).toHaveCount(0);
 

@@ -1041,5 +1041,8 @@
   scan();
   refreshCart();
 
-  console.log('[TCG+] vendor location extension loaded');
+  // Readiness marker for the e2e suite (and anyone else who needs to know
+  // the content script finished bootstrapping) — replaces the old
+  // console.log so a healthy page load produces no console output.
+  document.documentElement.dataset.tcgplusReady = '1';
 })();
