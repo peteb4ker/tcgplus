@@ -43,9 +43,7 @@ test.describe('Panel visibility (regression for #44)', () => {
     await mockTCGplayer(page);
 
     await page.goto('https://www.tcgplayer.com/');
-    await page.waitForEvent('console', (msg) => msg.text().includes('vendor location extension loaded'), {
-      timeout: 5000,
-    });
+    await page.waitForFunction(() => document.documentElement.dataset.tcgplusReady === '1', { timeout: 5000 });
 
     // Give the content script's MutationObserver debounce a chance to fire
     // even though the DOM is static — if the panel were going to appear
