@@ -127,4 +127,46 @@
     await saveSetting(STORAGE_KEYS.hideOOS, hideOOSEl.checked);
     flashStatus('Saved');
   });
+
+  // -- Live sync ----------------------------------------------------------
+  // Settings can change while this page is open: the search-page banner
+  // toggles hide-OOS, or a second options tab edits states. Without this
+  // listener the controls go stale and the next click writes the inverse
+  // of what the user sees. Guards against self-echo: values that already
+  // match local state are skipped, so our own saves don't re-render the
+  // grid out from under a rapid series of clicks.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes[STORAGE_KEYS.hideOOS]) {
+      hideOOSEl.checked = changes[STORAGE_KEYS.hideOOS].newValue === true;
+    }
+    if (changes[STORAGE_KEYS.forceNearMint]) {
+      forceNearMintEl.checked = changes[STORAGE_KEYS.forceNearMint].newValue === true;
+    }
+    for (const { el, key } of hideToggleEls) {
+      if (changes[key]) el.checked = changes[key].newValue === true;
+    }
+    let needsGridRender = false;
+    if (changes[STORAGE_KEYS.homeState]) {
+      const v = changes[STORAGE_KEYS.homeState].newValue;
+      if (typeof v === 'string' && STATE_CODES.has(v) && v !== homeState) {
+        homeState = v;
+        if (nearbyStates.has(v)) nearbyStates.delete(v);
+        homeSelect.value = v;
+        needsGridRender = true;
+      }
+    }
+    if (changes[STORAGE_KEYS.nearbyStates]) {
+      const v = changes[STORAGE_KEYS.nearbyStates].newValue;
+      if (Array.isArray(v)) {
+        const next = new Set(v.filter((c) => typeof c === 'string' && STATE_CODES.has(c) && c !== homeState));
+        const same = next.size === nearbyStates.size && [...next].every((c) => nearbyStates.has(c));
+        if (!same) {
+          nearbyStates = next;
+          needsGridRender = true;
+        }
+      }
+    }
+    if (needsGridRender) renderNearbyGrid();
+  });
 })();
