@@ -38,6 +38,12 @@ test.describe('Grid view (search page)', () => {
     expect(chipTexts).toContain('-$2.00 (-20.0%)');
     expect(chipTexts).toContain('+$1.00 (+10.0%)');
     expect(chipTexts).toContain('+$5.00 (+50.0%)');
+    // The grid tile's only price is shipping-inclusive, so the tooltip
+    // must disclose that the delta compares an all-in price (#99).
+    await expect(page.locator('.tcgplus-price-chips--card .tcgplus-price-chip').first()).toHaveAttribute(
+      'title',
+      'vs market $10.00 (tile price includes shipping)'
+    );
   });
 
   test('does not render shipping or Deal chips in grid view', async () => {

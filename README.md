@@ -21,7 +21,7 @@ It runs entirely in your browser. The only network calls it makes are to TCGplay
 
 TCGPlus runs on TCGplayer product pages, on search pages (the views you use to browse a set or a vendor's listings), and on the cart page. All of the chips, badges, filters, and panel controls below work the same in both places, and the cart page additionally gets a price-vs-market chip on every line item so you can sanity-check what's still a good deal before checking out.
 
-In **grid view** on the search page, where each tile shows one product without a separate shipping line, only the price-vs-market chip appears. List view continues to show the full chip row (delta, shipping, Deal). When you've filtered to a single seller (the "You are shopping from" banner is visible), the seller's location moves up into the banner and the per-listing location badges are suppressed since they'd all be identical.
+In **grid view** on the search page, where each tile shows one product without a separate shipping line, only the price-vs-market chip appears. The only price a grid tile shows is TCGplayer's shipping-inclusive cheapest listing, so the grid chip compares that all-in price against market. Expect it to read slightly worse than the list-view delta for the same listing, which chips the bare item price and shows shipping as its own chip; the grid chip's tooltip notes that its price includes shipping. List view continues to show the full chip row (delta, shipping, Deal). When you've filtered to a single seller (the "You are shopping from" banner is visible), the seller's location moves up into the banner and the per-listing location badges are suppressed since they'd all be identical.
 
 ### Vendor location badges
 
