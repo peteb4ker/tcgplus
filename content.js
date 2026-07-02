@@ -64,16 +64,15 @@
   const CART_SUMMARY_URL = (key) => `https://mpgateway.tcgplayer.com/v1/cart/${key}/summary?mpfev=5106`;
 
   // -- Seller cache -------------------------------------------------------
+  // Null results (network blip, non-OK status) are evicted so the next
+  // scan retries, instead of pinning the failure for the page lifetime
+  // and leaving every listing from that seller unannotated (#98).
   /** @type {Map<string, Promise<SellerInfo | null>>} */
   const sellerCache = new Map();
   function fetchSeller(sellerKey) {
-    const cached = sellerCache.get(sellerKey);
-    if (cached) return cached;
-    const p = fetch(SELLER_API + encodeURIComponent(sellerKey), { credentials: 'omit' })
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null);
-    sellerCache.set(sellerKey, p);
-    return p;
+    return cacheUntilNull(sellerCache, sellerKey, () =>
+      fetch(SELLER_API + encodeURIComponent(sellerKey), { credentials: 'omit' }).then((r) => (r.ok ? r.json() : null))
+    );
   }
 
   // -- Per-product per-SKU market-price cache -----------------------------
@@ -97,51 +96,46 @@
     return `${(condition || '').trim().toLowerCase()}|${(variant || 'Normal').trim().toLowerCase()}`;
   }
 
+  // Null (evicted, retried next scan) is reserved for fetch failures.
+  // A product that legitimately has no usable SKUs resolves to an empty
+  // Map, which stays cached — re-fetching "nothing there" every scan
+  // would hammer the API on pages full of non-English products (#98).
   function fetchProductSkuPricing(productId) {
     if (!Number.isFinite(productId)) return Promise.resolve(null);
-    const cached = productSkuPricingCache.get(productId);
-    if (cached) return cached;
-    const p = (async () => {
-      try {
-        const dResp = await fetch(PRODUCT_DETAILS_API(productId), {
-          credentials: 'omit',
-          headers: { accept: 'application/json' },
-        });
-        if (!dResp.ok) return null;
-        const details = await dResp.json();
-        const skus = Array.isArray(details && details.skus) ? details.skus : [];
-        if (!skus.length) return null;
-        const skuIds = skus.map((s) => s && s.sku).filter((x) => Number.isFinite(x));
-        if (!skuIds.length) return null;
-        const pResp = await fetch(SKU_MARKET_PRICE_API, {
-          method: 'POST',
-          credentials: 'omit',
-          headers: { 'content-type': 'application/json', accept: 'application/json' },
-          body: JSON.stringify({ skuIds }),
-        });
-        if (!pResp.ok) return null;
-        const prices = await pResp.json();
-        const skuMeta = new Map();
-        for (const s of skus) skuMeta.set(s.sku, s);
-        const out = new Map();
-        const rows = Array.isArray(prices) ? prices : [];
-        for (const row of rows) {
-          if (!row || typeof row.marketPrice !== 'number') continue;
-          const meta = skuMeta.get(row.skuId);
-          if (!meta) continue;
-          // Only English for now — the listing's language column is
-          // independent and we don't read it yet. English is the
-          // overwhelming majority of TCGplayer listings.
-          if (meta.language && meta.language !== 'English') continue;
-          out.set(skuLookupKey(meta.condition, meta.variant), row.marketPrice);
-        }
-        return out.size ? out : null;
-      } catch {
-        return null;
+    return cacheUntilNull(productSkuPricingCache, productId, async () => {
+      const dResp = await fetch(PRODUCT_DETAILS_API(productId), {
+        credentials: 'omit',
+        headers: { accept: 'application/json' },
+      });
+      if (!dResp.ok) return null;
+      const details = await dResp.json();
+      const skus = Array.isArray(details && details.skus) ? details.skus : [];
+      const skuIds = skus.map((s) => s && s.sku).filter((x) => Number.isFinite(x));
+      if (!skuIds.length) return new Map();
+      const pResp = await fetch(SKU_MARKET_PRICE_API, {
+        method: 'POST',
+        credentials: 'omit',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ skuIds }),
+      });
+      if (!pResp.ok) return null;
+      const prices = await pResp.json();
+      const skuMeta = new Map();
+      for (const s of skus) skuMeta.set(s.sku, s);
+      const out = new Map();
+      const rows = Array.isArray(prices) ? prices : [];
+      for (const row of rows) {
+        if (!row || typeof row.marketPrice !== 'number') continue;
+        const meta = skuMeta.get(row.skuId);
+        if (!meta) continue;
+        // Only English for now — the listing's language column is
+        // independent and we don't read it yet. English is the
+        // overwhelming majority of TCGplayer listings.
+        if (meta.language && meta.language !== 'English') continue;
+        out.set(skuLookupKey(meta.condition, meta.variant), row.marketPrice);
       }
-    })();
-    productSkuPricingCache.set(productId, p);
-    return p;
+      return out;
+    });
   }
 
   /** Pull the productId from a listing's surrounding context. */
@@ -664,7 +658,8 @@
     }
     const info = await fetchSeller(sellerKey);
     if (!info) {
-      banner.dataset.tcgplus = 'error';
+      // Same retry contract as annotate(): clear so the next scan retries.
+      delete banner.dataset.tcgplus;
       return;
     }
     const stateCode = stateCodeFromInfo(info);
@@ -759,7 +754,11 @@
 
     const info = await fetchSeller(key);
     if (!info) {
-      item.dataset.tcgplus = 'error';
+      // Transient fetch failure (the cache entry was evicted too).
+      // Clear the marker so the next mutation-driven scan retries —
+      // scans are the retry cadence, so a hard-down endpoint costs at
+      // most one fetch per seller per scan pass.
+      delete item.dataset.tcgplus;
       return;
     }
 

@@ -57,6 +57,12 @@ declare function createDegradationTracker(opts?: {
 
 declare function createCoalescedRunner(fn: () => Promise<void> | void): () => Promise<void>;
 
+declare function cacheUntilNull<V>(
+  cache: Map<any, Promise<V | null>>,
+  key: any,
+  fetcher: () => Promise<V | null> | V | null
+): Promise<V | null>;
+
 type OosBannerDescription = {
   text: string;
   button: string;
