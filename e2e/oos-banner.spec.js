@@ -75,6 +75,22 @@ test.describe('OOS banner on search-grid page', () => {
     await expect(page.locator('html.tcgplus-hide-oos')).toHaveCount(0);
   });
 
+  test('OOS tiles skip seller/pricing annotation work (regression for #100)', async () => {
+    await page.goto('https://www.tcgplayer.com/search/all/test');
+    // All 5 tiles processed: 3 in-stock annotated fully, 2 OOS tiles
+    // short-circuited to done without a seller fetch (no seller-key or
+    // tier dataset ever set on them).
+    await expect(page.locator('.product-card__product[data-tcgplus="done"]')).toHaveCount(5);
+    await expect(
+      page.locator('.search-result:has(.mp-oos-badge) .product-card__product[data-tcgplus-seller-key]')
+    ).toHaveCount(0);
+    // In-stock tiles keep their seller annotations, proving the early
+    // exit is scoped to OOS tiles only.
+    await expect(
+      page.locator('.search-result:not(:has(.mp-oos-badge)) .product-card__product[data-tcgplus-seller-key]')
+    ).toHaveCount(3);
+  });
+
   test('does not mount when no tiles carry the OOS badge', async () => {
     // Re-route the search URL to the original (no-OOS) fixture for this case.
     const baseHtml = await fs.readFile(path.join(__dirname, 'fixtures', 'search-grid-page.html'), 'utf8');
