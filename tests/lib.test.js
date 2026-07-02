@@ -383,6 +383,75 @@ test('createCoalescedRunner: single trigger runs fn once', async () => {
   assert.equal(runs, 1);
 });
 
+test('cacheUntilNull caches non-null results', async () => {
+  const cache = new Map();
+  let fetches = 0;
+  const fetcher = async () => {
+    fetches++;
+    return { ok: true };
+  };
+  const a = await lib.cacheUntilNull(cache, 'k', fetcher);
+  const b = await lib.cacheUntilNull(cache, 'k', fetcher);
+  assert.deepEqual(a, { ok: true });
+  assert.equal(a, b);
+  assert.equal(fetches, 1);
+});
+
+test('cacheUntilNull: concurrent callers share one in-flight fetch', async () => {
+  const cache = new Map();
+  let fetches = 0;
+  const fetcher = () => {
+    fetches++;
+    return new Promise((resolve) => setTimeout(() => resolve('v'), 5));
+  };
+  const [a, b] = await Promise.all([lib.cacheUntilNull(cache, 'k', fetcher), lib.cacheUntilNull(cache, 'k', fetcher)]);
+  assert.equal(a, 'v');
+  assert.equal(b, 'v');
+  assert.equal(fetches, 1);
+});
+
+test('cacheUntilNull evicts null results so the next call retries', async () => {
+  const cache = new Map();
+  let fetches = 0;
+  const fetcher = async () => {
+    fetches++;
+    return fetches === 1 ? null : 'recovered';
+  };
+  assert.equal(await lib.cacheUntilNull(cache, 'k', fetcher), null);
+  assert.equal(cache.has('k'), false);
+  assert.equal(await lib.cacheUntilNull(cache, 'k', fetcher), 'recovered');
+  assert.equal(fetches, 2);
+  assert.equal(cache.has('k'), true);
+});
+
+test('cacheUntilNull treats fetcher rejection as null and evicts', async () => {
+  const cache = new Map();
+  let fetches = 0;
+  const fetcher = async () => {
+    fetches++;
+    if (fetches === 1) throw new Error('network');
+    return 'recovered';
+  };
+  assert.equal(await lib.cacheUntilNull(cache, 'k', fetcher), null);
+  assert.equal(cache.has('k'), false);
+  assert.equal(await lib.cacheUntilNull(cache, 'k', fetcher), 'recovered');
+});
+
+test('cacheUntilNull keeps non-null falsy-ish sentinels cached (empty Map)', async () => {
+  const cache = new Map();
+  let fetches = 0;
+  const fetcher = async () => {
+    fetches++;
+    return new Map();
+  };
+  const a = await lib.cacheUntilNull(cache, 'k', fetcher);
+  const b = await lib.cacheUntilNull(cache, 'k', fetcher);
+  assert.ok(a instanceof Map);
+  assert.equal(a.size, 0);
+  assert.equal(a, b);
+  assert.equal(fetches, 1);
+});
+
 /** Spin bounded microtask ticks until cond() holds (avoids guessing tick depth). */
 async function untilAsync(cond) {
   for (let i = 0; i < 50 && !cond(); i++) await Promise.resolve();

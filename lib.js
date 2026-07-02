@@ -430,6 +430,39 @@ function createDegradationTracker(opts) {
 }
 
 /**
+ * Memoise an async fetcher in `cache` by `key`, treating `null` as a
+ * transient failure: the entry is evicted when the promise resolves
+ * null, so the next call retries instead of pinning the failure for the
+ * cache's lifetime. Concurrent callers share the in-flight promise, so
+ * a burst of lookups for the same key still costs one fetch. Fetcher
+ * rejections resolve to null (and evict) — callers never see a rejected
+ * promise.
+ *
+ * Fetchers must reserve `null` for genuine failures (network error,
+ * non-OK response) and return a non-null sentinel (empty Map, empty
+ * object) for "fetched fine, nothing there" — otherwise legitimately
+ * empty data gets re-fetched on every call.
+ *
+ * @template V
+ * @param {Map<any, Promise<V | null>>} cache
+ * @param {any} key
+ * @param {() => Promise<V | null> | V | null} fetcher
+ * @returns {Promise<V | null>}
+ */
+function cacheUntilNull(cache, key, fetcher) {
+  const cached = cache.get(key);
+  if (cached) return cached;
+  const p = Promise.resolve()
+    .then(fetcher)
+    .catch(() => null);
+  cache.set(key, p);
+  p.then((v) => {
+    if (v === null && cache.get(key) === p) cache.delete(key);
+  });
+  return p;
+}
+
+/**
  * Wrap an async function so overlapping triggers coalesce instead of
  * being dropped. While a run is in flight, any number of triggers mark
  * it dirty; when the run settles, exactly one follow-up run fires. This
@@ -536,6 +569,7 @@ if (typeof module !== 'undefined' && module.exports) {
     isOurNode,
     createDegradationTracker,
     createCoalescedRunner,
+    cacheUntilNull,
     describeOosBanner,
   };
 }
