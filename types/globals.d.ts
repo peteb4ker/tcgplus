@@ -55,6 +55,8 @@ declare function createDegradationTracker(opts?: {
   clearTimeoutFn?: typeof clearTimeout;
 }): DegradationTracker;
 
+declare function createCoalescedRunner(fn: () => Promise<void> | void): () => Promise<void>;
+
 type OosBannerDescription = {
   text: string;
   button: string;

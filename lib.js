@@ -430,6 +430,46 @@ function createDegradationTracker(opts) {
 }
 
 /**
+ * Wrap an async function so overlapping triggers coalesce instead of
+ * being dropped. While a run is in flight, any number of triggers mark
+ * it dirty; when the run settles, exactly one follow-up run fires. This
+ * guarantees the final run starts *after* the last trigger, so state
+ * refreshed by `fn` can't go stale when triggers arrive mid-flight
+ * (e.g. two cart changes in quick succession — the second used to join
+ * the first's in-flight fetch and read a response that predated it).
+ *
+ * The returned promise resolves after the triggering run AND any
+ * follow-up it queued have settled. `fn` rejections are swallowed —
+ * callers fire-and-forget; error surfacing is `fn`'s own job.
+ *
+ * @param {() => Promise<void> | void} fn
+ * @returns {() => Promise<void>}
+ */
+function createCoalescedRunner(fn) {
+  /** @type {Promise<void> | null} */
+  let inFlight = null;
+  let queued = false;
+  function trigger() {
+    if (inFlight) {
+      queued = true;
+      return inFlight;
+    }
+    inFlight = Promise.resolve()
+      .then(fn)
+      .catch(() => {})
+      .then(() => {
+        inFlight = null;
+        if (queued) {
+          queued = false;
+          return trigger();
+        }
+      });
+    return inFlight;
+  }
+  return trigger;
+}
+
+/**
  * Compose the text and toggle button for the banner that mounts above the
  * search-grid tile list. Returns null when there's nothing to surface (no
  * tiles on the page carry TCGplayer's "Out of Stock" badge).
@@ -495,6 +535,7 @@ if (typeof module !== 'undefined' && module.exports) {
     tierLabel,
     isOurNode,
     createDegradationTracker,
+    createCoalescedRunner,
     describeOosBanner,
   };
 }

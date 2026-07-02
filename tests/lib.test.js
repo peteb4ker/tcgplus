@@ -374,6 +374,91 @@ test('createDegradationTracker fires onChange on real mark and on clear', () => 
   assert.equal(changes, 2);
 });
 
+test('createCoalescedRunner: single trigger runs fn once', async () => {
+  let runs = 0;
+  const trigger = lib.createCoalescedRunner(async () => {
+    runs++;
+  });
+  await trigger();
+  assert.equal(runs, 1);
+});
+
+/** Spin bounded microtask ticks until cond() holds (avoids guessing tick depth). */
+async function untilAsync(cond) {
+  for (let i = 0; i < 50 && !cond(); i++) await Promise.resolve();
+  assert.ok(cond(), 'condition not reached within bounded microtask spins');
+}
+
+test('createCoalescedRunner: trigger during flight queues exactly one follow-up', async () => {
+  let runs = 0;
+  /** @type {(() => void)[]} */
+  const releases = [];
+  const trigger = lib.createCoalescedRunner(() => {
+    runs++;
+    return new Promise((resolve) => releases.push(() => resolve(undefined)));
+  });
+  const first = trigger();
+  // Three triggers while run 1 is in flight — they must coalesce.
+  trigger();
+  trigger();
+  trigger();
+  await untilAsync(() => releases.length === 1);
+  assert.equal(runs, 1);
+  releases[0]();
+  await untilAsync(() => runs === 2);
+  releases[1]();
+  await first;
+  assert.equal(runs, 2);
+});
+
+test('createCoalescedRunner: follow-up starts after the first run settles', async () => {
+  /** @type {string[]} */
+  const order = [];
+  /** @type {(() => void)[]} */
+  const releases = [];
+  const trigger = lib.createCoalescedRunner(() => {
+    const n = releases.length;
+    order.push(`start${n}`);
+    return new Promise((resolve) => {
+      releases.push(() => {
+        order.push(`end${n}`);
+        resolve(undefined);
+      });
+    });
+  });
+  const p = trigger();
+  trigger();
+  await untilAsync(() => releases.length === 1);
+  releases[0]();
+  await untilAsync(() => releases.length === 2);
+  releases[1]();
+  await p;
+  assert.deepEqual(order, ['start0', 'end0', 'start1', 'end1']);
+});
+
+test('createCoalescedRunner: a rejecting run does not break later triggers', async () => {
+  let runs = 0;
+  const trigger = lib.createCoalescedRunner(async () => {
+    runs++;
+    if (runs === 1) throw new Error('boom');
+  });
+  await trigger();
+  assert.equal(runs, 1);
+  await trigger();
+  assert.equal(runs, 2);
+});
+
+test('createCoalescedRunner: trigger after settle starts a fresh run', async () => {
+  let runs = 0;
+  const trigger = lib.createCoalescedRunner(async () => {
+    runs++;
+  });
+  await trigger();
+  await trigger();
+  await trigger();
+  assert.equal(runs, 3);
+});
+
 test('describeOosBanner returns null when no tiles are flagged', () => {
   assert.equal(lib.describeOosBanner(0, false), null);
   assert.equal(lib.describeOosBanner(0, true), null);

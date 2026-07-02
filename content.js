@@ -61,8 +61,6 @@
   /** @type {Map<string, number>} */
   const cartSellerSubtotal = new Map();
   let cartSubtotal = 0;
-  /** @type {Promise<void> | null} */
-  let cartFetchPromise = null;
   const CART_SUMMARY_URL = (key) => `https://mpgateway.tcgplayer.com/v1/cart/${key}/summary?mpfev=5106`;
 
   // -- Seller cache -------------------------------------------------------
@@ -186,7 +184,12 @@
     return m ? m[1] : null;
   }
 
-  async function refreshCart() {
+  // Coalesced: a refresh requested while a fetch is in flight queues
+  // exactly one follow-up fetch after the current one settles, so the
+  // subtotal always reflects a response requested *after* the last cart
+  // change. Without this, two quick cart changes left the badge showing
+  // the first change's total until some future mutation (#97).
+  const refreshCart = createCoalescedRunner(async () => {
     const key = getCartKey();
     if (!key) {
       cartSubtotal = 0;
@@ -194,38 +197,33 @@
       renderCartBadge();
       return;
     }
-    if (cartFetchPromise) return cartFetchPromise;
-    cartFetchPromise = (async () => {
-      try {
-        const r = await fetch(CART_SUMMARY_URL(key), {
-          credentials: 'include',
-          headers: { Accept: 'application/json' },
-        });
-        if (r.ok) {
-          const json = await r.json();
-          const cart = json && json.results && json.results[0];
-          cartSellerSubtotal.clear();
-          if (cart) {
-            for (const s of cart.sellers || []) {
-              if (s.sellerKey) cartSellerSubtotal.set(s.sellerKey, Number(s.productTotalCost) || 0);
-            }
-            cartSubtotal = Number(cart.itemSubtotal) || 0;
-          } else {
-            cartSubtotal = 0;
+    try {
+      const r = await fetch(CART_SUMMARY_URL(key), {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      });
+      if (r.ok) {
+        const json = await r.json();
+        const cart = json && json.results && json.results[0];
+        cartSellerSubtotal.clear();
+        if (cart) {
+          for (const s of cart.sellers || []) {
+            if (s.sellerKey) cartSellerSubtotal.set(s.sellerKey, Number(s.productTotalCost) || 0);
           }
-          clearDegraded('cart');
+          cartSubtotal = Number(cart.itemSubtotal) || 0;
         } else {
-          markDegraded('cart', "Couldn't load your cart. The Deal chip will fall back to ignoring cart context.");
+          cartSubtotal = 0;
         }
-      } catch (_) {
+        clearDegraded('cart');
+      } else {
         markDegraded('cart', "Couldn't load your cart. The Deal chip will fall back to ignoring cart context.");
       }
-      renderCartBadge();
-      recomputeDealChips();
-      cartFetchPromise = null;
-    })();
-    return cartFetchPromise;
-  }
+    } catch (_) {
+      markDegraded('cart', "Couldn't load your cart. The Deal chip will fall back to ignoring cart context.");
+    }
+    renderCartBadge();
+    recomputeDealChips();
+  });
 
   function renderCartBadge() {
     const countEl = document.querySelector('.mp-header__content__cart-count');
