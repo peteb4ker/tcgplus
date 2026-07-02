@@ -512,6 +512,16 @@
 
   async function annotateProductCard(card) {
     if (card.dataset.tcgplus) return;
+
+    // Tiles flagged out-of-stock by TCGplayer have no buyable price —
+    // the seller fetch and price-element hunt are wasted work, and a
+    // missing market element on these tiles would mark a spurious
+    // market-price degradation (the tile just has no listings matching
+    // the filters, not selector drift). See #100.
+    if (card.querySelector('.mp-oos-badge')) {
+      card.dataset.tcgplus = 'done';
+      return;
+    }
     card.dataset.tcgplus = 'pending';
 
     const sellerKey = extractSellerKeyFromCard(card);
@@ -850,7 +860,14 @@
       degradations.size > 0
         ? `<div class="tcgplus-panel-warnings">${[...degradations.values()].map((m) => `<div class="tcgplus-panel-warning">${m}</div>`).join('')}</div>`
         : '';
-    panel.innerHTML = `<div class="tcgplus-panel-title">Vendor Locations${gear}</div>${warningsHtml}${rowsHtml}`;
+    const wantHtml = `<div class="tcgplus-panel-title">Vendor Locations${gear}</div>${warningsHtml}${rowsHtml}`;
+    // Compare before set (same pattern as renderOosBanner): renderPanel
+    // runs on every debounced scan, and an unconditional innerHTML write
+    // rebuilds the panel DOM each time — churn, plus it kills in-panel
+    // text selection while the user reads a warning. See #101.
+    if (panel.innerHTML !== wantHtml) {
+      panel.innerHTML = wantHtml;
+    }
   }
 
   // Mount a banner above the search-grid tile list whenever the page
