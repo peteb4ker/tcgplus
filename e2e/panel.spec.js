@@ -31,6 +31,35 @@ test.describe('Floating panel and chips', () => {
     await expect(panel.locator('.tcgplus-row-other b')).toHaveText('1');
   });
 
+  test('steady-state scans leave the panel DOM untouched (regression for #101)', async () => {
+    await page.goto('https://www.tcgplayer.com/product/1/test');
+    const panel = page.locator('.tcgplus-panel');
+    // Let everything settle: tier counts and chips rendered means no
+    // further legitimate panel changes are coming.
+    await expect(panel.locator('.tcgplus-row-home b')).toHaveText('1');
+    await expect(page.locator('.listing-item[data-tcgplus-chips="1"]')).toHaveCount(3);
+
+    // Tag a live panel child. An unconditional innerHTML rewrite would
+    // replace the element and drop the expando; compare-before-set keeps
+    // the same node.
+    await page.evaluate(() => {
+      const t = /** @type {any} */ (document.querySelector('.tcgplus-panel-title'));
+      t.__tcgplusTestMarker = true;
+    });
+
+    // External mutation → debounced scan → renderPanel with unchanged data.
+    await page.evaluate(() => {
+      document.body.appendChild(document.createElement('div'));
+    });
+    await page.waitForTimeout(600); // scan debounce is 200ms; generous margin
+
+    const kept = await page.evaluate(() => {
+      const t = /** @type {any} */ (document.querySelector('.tcgplus-panel-title'));
+      return t ? t.__tcgplusTestMarker === true : false;
+    });
+    expect(kept).toBe(true);
+  });
+
   test('renders price + shipping chips on each listing', async () => {
     await page.goto('https://www.tcgplayer.com/product/1/test');
     await expect(page.locator('.tcgplus-price-chip').first()).toBeVisible();
