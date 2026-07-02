@@ -324,14 +324,21 @@
   /**
    * Build the HTML string for a single price-vs-market chip.
    * Shared between the list-view tile renderer (where it's the middle of
-   * three sibling chips) and the grid-view tile renderer (where it's the
-   * only chip).
+   * three sibling chips), the grid-view tile renderer (where it's the
+   * only chip), and the cart-row renderer.
+   *
+   * @param {number} price
+   * @param {number} market
+   * @param {{ titleNote?: string }} [opts]  extra tooltip text appended
+   *   after the market figure, e.g. a note that the compared price
+   *   includes shipping (grid tiles show only a shipping-inclusive price).
    */
-  function buildDeltaChipHtml(price, market) {
+  function buildDeltaChipHtml(price, market, opts) {
     const diff = price - market;
     const pct = (diff / market) * 100;
     const colors = chipColorForPct(pct);
-    return `<span class="tcgplus-price-chip" style="background:${colors.bg};color:${colors.fg};" title="vs market $${market.toFixed(2)}">${formatAbsDiff(diff)} (${formatPctDiff(pct)})</span>`;
+    const note = opts && opts.titleNote ? ` ${opts.titleNote}` : '';
+    return `<span class="tcgplus-price-chip" style="background:${colors.bg};color:${colors.fg};" title="vs market $${market.toFixed(2)}${note}">${formatAbsDiff(diff)} (${formatPctDiff(pct)})</span>`;
   }
 
   function findListingCondition(item) {
@@ -554,7 +561,12 @@
 
     const wrap = document.createElement('span');
     wrap.className = 'tcgplus-price-chips tcgplus-price-chips--card';
-    wrap.innerHTML = buildDeltaChipHtml(price, market);
+    // Grid tiles only show TCGplayer's shipping-inclusive cheapest-listing
+    // price, so this delta compares an all-in price against market and
+    // reads slightly worse than the list-view delta for the same listing.
+    // Say so in the tooltip. Keep the README's grid-view paragraph in
+    // sync with this note (#99).
+    wrap.innerHTML = buildDeltaChipHtml(price, market, { titleNote: '(tile price includes shipping)' });
     priceEl.appendChild(wrap);
     card.dataset.tcgplusChips = '1';
   }
