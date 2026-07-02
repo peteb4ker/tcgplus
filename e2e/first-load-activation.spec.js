@@ -82,10 +82,8 @@ test.describe('First-load activation (regression for #42)', () => {
 
     await page.goto('https://www.tcgplayer.com/');
     // The content script should now inject on the homepage (after the fix).
-    // Wait for its load log so the subsequent SPA navigation is observed.
-    await page.waitForEvent('console', (msg) => msg.text().includes('vendor location extension loaded'), {
-      timeout: 5000,
-    });
+    // Wait for its readiness marker so the subsequent SPA navigation is observed.
+    await page.waitForFunction(() => document.documentElement.dataset.tcgplusReady === '1', { timeout: 5000 });
 
     // Simulate TCGplayer's SPA navigation: history.pushState + DOM swap.
     // The content script's MutationObserver should pick this up.
@@ -123,7 +121,7 @@ test.describe('First-load activation (regression for #42)', () => {
     );
     await mockTCGplayer(page, { productHtml: shellHtml });
     await page.goto('https://www.tcgplayer.com/product/1/test');
-    await page.waitForEvent('console', (msg) => msg.text().includes('vendor location extension loaded'));
+    await page.waitForFunction(() => document.documentElement.dataset.tcgplusReady === '1');
     await page.waitForTimeout(1500);
     await page.evaluate(
       ({ a, b, c }) => {
@@ -173,7 +171,7 @@ test.describe('First-load activation (regression for #42)', () => {
     );
     await mockTCGplayer(page, { productHtml: shellHtml });
     await page.goto('https://www.tcgplayer.com/product/1/test');
-    await page.waitForEvent('console', (msg) => msg.text().includes('vendor location extension loaded'));
+    await page.waitForFunction(() => document.documentElement.dataset.tcgplusReady === '1');
 
     await page.evaluate(
       ({ a, b, c }) => {

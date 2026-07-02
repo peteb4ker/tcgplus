@@ -1,5 +1,6 @@
 {
   "manifest_version": 3,
+  "minimum_chrome_version": "105",
   "name": "TCGPlus – TCGplayer Deal Finder & Seller Location",
   "short_name": "TCGPlus",
   "version": "0.4.1",
