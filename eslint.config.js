@@ -82,6 +82,7 @@ module.exports = [
         tierLabel: 'readonly',
         isOurNode: 'readonly',
         createDegradationTracker: 'readonly',
+        createCoalescedRunner: 'readonly',
         describeOosBanner: 'readonly',
         // Provided by storage.js loaded between lib.js and content.js.
         STORAGE_KEYS: 'readonly',
