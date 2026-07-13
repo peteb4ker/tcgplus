@@ -24,6 +24,25 @@ declare function skuLookupKey(condition: string | null | undefined, variant: str
 declare function capConditionMarkets(markets: Map<string, number>): Map<string, number>;
 declare function parsePrice(text: string | null | undefined): number | null;
 declare function parseShippingCost(text: string | null | undefined): number | null;
+declare function parseUsdAmount(text: string | null | undefined): number | null;
+declare function parseCartQuantity(text: string | null | undefined): number;
+type CartVerdict = {
+  marketValue: number;
+  itemsTotal: number;
+  shipping: number;
+  tax: number;
+  allIn: number;
+  delta: number;
+  pct: number;
+  unitCount: number;
+  unresolvedCount: number;
+};
+declare function computeCartVerdict(opts: {
+  items: Array<{ price: number; qty?: number; market?: number | null }>;
+  itemsTotal?: number | null;
+  shipping?: number | null;
+  tax?: number | null;
+}): CartVerdict | null;
 declare function parseConditionAndVariant(text: string | null | undefined): {
   condition: string | null;
   variant: string | null;

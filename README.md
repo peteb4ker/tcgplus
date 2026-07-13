@@ -62,6 +62,16 @@ If the per-SKU lookup is unavailable (TCGplayer API down, unknown variant), the 
 
 ![Red chips above market](docs/images/chips-above-market.png)
 
+### Checkout: all-in cost vs market
+
+At a card show you'd pay the sum of the cards' market prices in cash — no shipping, no tax. Checkout is where your real all-in cost is finally known, so TCGPlus adds a small breakdown to the Order Summary card, under Est. Tax:
+
+- **Market value**: each line item's per-SKU market price (condition- and variant-aware, same pipeline as the chips) times its quantity, summed.
+- **Items total, shipping, and est. tax**, read from the summary itself.
+- **All-in vs market**: a color-coded verdict chip, e.g. `-$3.14 (-8.2%)` — how the total you're about to pay compares to buying the same cards at market in person.
+
+Items with no market data are counted at their listed price (they can't move the verdict either way) and a note says how many. The breakdown only appears on checkout, where tax is known; the cart page keeps its per-item chips.
+
 ### Cart subtotal in the header
 
 The cart icon in TCGplayer's header normally shows the item count. TCGPlus adds the cart's current subtotal next to it in the same green text TCGplayer uses for listing prices, so you can see what you're spending without opening the cart. It always shows, even at `$0.00`. The number refreshes whenever the count badge changes, so adding or removing an item updates it automatically. Same number is what feeds the Deal-chip math.

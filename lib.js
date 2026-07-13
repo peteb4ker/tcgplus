@@ -262,6 +262,97 @@ function listingMatchesHeadlineCondition(listingCondition, headlineConditions) {
 }
 
 /**
+ * Parse a positive dollar amount from text, accepting $0.00. Unlike
+ * parsePrice (which treats zero as missing because listings never cost
+ * $0), summary rows like Shipping and Est. Tax are legitimately $0.00.
+ *
+ * @param {string | null | undefined} text
+ * @returns {number | null}
+ */
+function parseUsdAmount(text) {
+  if (!text) return null;
+  const m = text.replace(/,/g, '').match(/\$\s*(\d+(?:\.\d+)?)/);
+  if (!m) return null;
+  const v = parseFloat(m[1]);
+  return Number.isFinite(v) ? v : null;
+}
+
+/**
+ * Parse the quantity multiplier from a cart row's price text, e.g.
+ * "2 × $0.25" → 2. Single-quantity rows render without a multiplier;
+ * default to 1. Accepts '×' or a plain 'x'.
+ *
+ * @param {string | null | undefined} text
+ * @returns {number}
+ */
+function parseCartQuantity(text) {
+  if (!text) return 1;
+  const m = text.match(/(\d+)\s*[×x]\s*\$/i);
+  if (!m) return 1;
+  const q = parseInt(m[1], 10);
+  return Number.isFinite(q) && q > 0 ? q : 1;
+}
+
+/**
+ * Aggregate a checkout cart into an all-in vs market verdict.
+ *
+ * The benchmark: buying these exact cards at market price in person
+ * (card show) costs the sum of per-SKU market prices with no shipping
+ * or tax. Online you pay items + shipping + tax. The verdict says how
+ * far the all-in checkout total sits from that market baseline.
+ *
+ * Items whose market couldn't be resolved count at their listed price —
+ * a zero contribution to the delta — and are tallied in
+ * `unresolvedCount` so the caller can disclose partial coverage.
+ *
+ * @param {{
+ *   items: Array<{ price: number, qty?: number, market?: number | null }>,
+ *   itemsTotal?: number | null,  // DOM "Items Total" when known; falls back to computed
+ *   shipping?: number | null,
+ *   tax?: number | null,
+ * }} opts
+ * @returns {{
+ *   marketValue: number,
+ *   itemsTotal: number,
+ *   shipping: number,
+ *   tax: number,
+ *   allIn: number,
+ *   delta: number,
+ *   pct: number,
+ *   unitCount: number,
+ *   unresolvedCount: number,
+ * } | null}  null when there's nothing to aggregate.
+ */
+function computeCartVerdict(opts) {
+  const items = opts && Array.isArray(opts.items) ? opts.items : [];
+  if (!items.length) return null;
+  let computedItemsTotal = 0;
+  let marketValue = 0;
+  let unitCount = 0;
+  let unresolvedCount = 0;
+  for (const it of items) {
+    if (!it || !Number.isFinite(it.price)) continue;
+    const qty = Number.isFinite(it.qty) && /** @type {number} */ (it.qty) > 0 ? Math.floor(it.qty) : 1;
+    computedItemsTotal += it.price * qty;
+    unitCount += qty;
+    if (Number.isFinite(it.market)) {
+      marketValue += /** @type {number} */ (it.market) * qty;
+    } else {
+      marketValue += it.price * qty;
+      unresolvedCount++;
+    }
+  }
+  if (unitCount === 0 || marketValue <= 0) return null;
+  const itemsTotal = Number.isFinite(opts.itemsTotal) ? /** @type {number} */ (opts.itemsTotal) : computedItemsTotal;
+  const shipping = Number.isFinite(opts.shipping) ? /** @type {number} */ (opts.shipping) : 0;
+  const tax = Number.isFinite(opts.tax) ? /** @type {number} */ (opts.tax) : 0;
+  const allIn = itemsTotal + shipping + tax;
+  const delta = allIn - marketValue;
+  const pct = (delta / marketValue) * 100;
+  return { marketValue, itemsTotal, shipping, tax, allIn, delta, pct, unitCount, unresolvedCount };
+}
+
+/**
  * Pull the alphanumeric seller key out of a TCGplayer seller URL like
  * `/sellers/<name>/<key>`.
  *
@@ -603,6 +694,9 @@ if (typeof module !== 'undefined' && module.exports) {
     FREE_SHIP_THRESHOLD,
     parsePrice,
     parseShippingCost,
+    parseUsdAmount,
+    parseCartQuantity,
+    computeCartVerdict,
     TCG_CONDITIONS,
     skuLookupKey,
     capConditionMarkets,
