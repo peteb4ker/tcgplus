@@ -92,10 +92,6 @@
   /** @type {Map<number, Promise<Map<string, number> | null>>} */
   const productSkuPricingCache = new Map();
 
-  function skuLookupKey(condition, variant) {
-    return `${(condition || '').trim().toLowerCase()}|${(variant || 'Normal').trim().toLowerCase()}`;
-  }
-
   // Null (evicted, retried next scan) is reserved for fetch failures.
   // A product that legitimately has no usable SKUs resolves to an empty
   // Map, which stays cached — re-fetching "nothing there" every scan
@@ -134,7 +130,11 @@
         if (meta.language && meta.language !== 'English') continue;
         out.set(skuLookupKey(meta.condition, meta.variant), row.marketPrice);
       }
-      return out;
+      // TCGplayer's thin-data condition tiers can price a worse condition
+      // above a better one (stale recalculation on a moving card), which
+      // makes cheap LP listings look like deals against a market that no
+      // longer exists. Cap each tier at the best condition above it (#111).
+      return capConditionMarkets(out);
     });
   }
 

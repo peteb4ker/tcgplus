@@ -20,6 +20,8 @@ declare const VALID_TIERS: Set<string>;
 declare const FREE_SHIP_THRESHOLD: number;
 
 declare const TCG_CONDITIONS: ReadonlyArray<string>;
+declare function skuLookupKey(condition: string | null | undefined, variant: string | null | undefined): string;
+declare function capConditionMarkets(markets: Map<string, number>): Map<string, number>;
 declare function parsePrice(text: string | null | undefined): number | null;
 declare function parseShippingCost(text: string | null | undefined): number | null;
 declare function parseConditionAndVariant(text: string | null | undefined): {

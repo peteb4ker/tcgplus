@@ -46,6 +46,8 @@ Each listing gets a row of chips that show price-vs-market, shipping cost, and w
 
 When a tile or product page shows listings across different variants (Normal / Holofoil / Reverse Holofoil) or different conditions (NM / LP / MP / HP / DM), each listing chips against its **own SKU's market price**, not the page's headline market. The extension fetches per-SKU market prices from TCGplayer's own pricing endpoints and matches each listing by (condition, variant) before computing the delta. A Reverse Holofoil Near Mint listing in a tile whose headline market is the Holofoil Near Mint price will correctly show the delta against the Reverse Holofoil market, not the Holofoil one.
 
+One correction is applied to TCGplayer's per-SKU numbers: within a variant, each condition's market price is **capped at the best condition above it** (NM, then LP, MP, HP, Damaged). TCGplayer recalculates low-volume condition tiers days later than Near Mint, so on a card whose price is moving, a stale Lightly Played "market" can sit above the fresh Near Mint one. Without the cap, an LP listing priced under that stale figure would show an inflated below-market delta and could earn a DEAL chip while costing more than the NM market. Both the delta chip and the Deal math use the capped value.
+
 If the per-SKU lookup is unavailable (TCGplayer API down, unknown variant), the chip falls back to the headline market price but only on listings whose condition matches the headline — mismatched variants/conditions get the shipping chip only rather than a misleading delta.
 
 **Below market**

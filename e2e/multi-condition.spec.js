@@ -159,6 +159,77 @@ test.describe('Per-SKU market prices for multi-variant listings (regression for 
     await expect(rhDelta).toHaveAttribute('title', 'vs market $4.67');
   });
 
+  test('caps a stale worse-condition market at the NM market (regression for #111)', async () => {
+    // Replays TCGplayer's real numbers for ME Mega Evolution Promo
+    // Ampharos 075 (productId 694681): the LP-Holofoil "market" ($16.82)
+    // sat ABOVE the NM-Holofoil market ($15.53) because the thin LP tier
+    // recalculated days later on a falling card. Without the cap, a
+    // $15.00 + $0.99-shipping LP listing totals $15.99 < $16.82 and
+    // earned a bogus DEAL chip with a -$1.82 (-10.8%) delta.
+    const AMPHAROS_ID = 694681;
+    const AMPHAROS_HTML = `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>stale LP market fixture</title></head>
+  <body>
+    <header>
+      <button class="mp-header__content__cart-count" type="button" aria-label="Cart">
+        <span class="tcg-badge mp-header__content__cart-count__chip">0</span>
+      </button>
+    </header>
+    <section class="price-points">
+      <div>Market Price:</div>
+      <span class="price-points__upper__price">$15.53</span>
+    </section>
+    <section class="listings">
+      <article class="listing-item" data-testid="listing-item--lp-holo">
+        <div class="listing-item__listing-data">
+          <div class="listing-item__listing-data__seller">
+            <div class="seller-info">
+              <a class="seller-info__name" href="/sellers/Seller-A/aaaaaaaa">Seller A</a>
+              <div class="seller-info__content"></div>
+            </div>
+          </div>
+          <div class="listing-item__listing-data__info">
+            <h3 class="listing-item__listing-data__info__condition"><a href="#">Lightly Played Holofoil</a></h3>
+            <div class="listing-item__listing-data__info__price">$15.00</div>
+            <span>+ $0.99 Shipping</span>
+          </div>
+        </div>
+      </article>
+    </section>
+  </body>
+</html>`;
+    await mockTCGplayer(page, {
+      productHtml: AMPHAROS_HTML,
+      productSkus: {
+        [AMPHAROS_ID]: [
+          { sku: 9289883, condition: 'Near Mint', variant: 'Holofoil', language: 'English' },
+          { sku: 9289884, condition: 'Lightly Played', variant: 'Holofoil', language: 'English' },
+        ],
+      },
+      skuMarketPrices: {
+        9289883: { marketPrice: 15.53 },
+        9289884: { marketPrice: 16.82 },
+      },
+      cart: null,
+    });
+    await page.goto(`https://www.tcgplayer.com/product/${AMPHAROS_ID}/test`);
+    await expect(page.locator('.listing-item[data-tcgplus-chips="1"]')).toHaveCount(1);
+
+    // Delta computed against the CAPPED market ($15.53), not the stale
+    // $16.82: $15.00 - $15.53 = -$0.53 (-3.4%).
+    const chips = await page.locator('[data-testid="listing-item--lp-holo"] .tcgplus-price-chip').allInnerTexts();
+    expect(chips).toContain('-$0.53 (-3.4%)');
+    expect(chips).toContain('$0.99 shipping');
+    // All-in $15.99 is above the capped market — no DEAL chip.
+    expect(chips).not.toContain('DEAL');
+
+    const delta = page
+      .locator('[data-testid="listing-item--lp-holo"] .tcgplus-price-chip')
+      .filter({ hasText: '-$0.53' });
+    await expect(delta).toHaveAttribute('title', 'vs market $15.53');
+  });
+
   test('falls back to headline market when per-SKU lookup yields nothing', async () => {
     // Re-mock with no SKU catalog so per-SKU resolution returns null. The
     // headline-market path with condition gating from #70 takes over.

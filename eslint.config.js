@@ -68,6 +68,8 @@ module.exports = [
         parsePrice: 'readonly',
         parseShippingCost: 'readonly',
         TCG_CONDITIONS: 'readonly',
+        skuLookupKey: 'readonly',
+        capConditionMarkets: 'readonly',
         parseConditionAndVariant: 'readonly',
         getUrlConditions: 'readonly',
         listingMatchesHeadlineCondition: 'readonly',
