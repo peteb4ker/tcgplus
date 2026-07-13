@@ -108,11 +108,61 @@ function parseShippingCost(text) {
 }
 
 /**
- * The five TCGplayer condition tiers, ordered longest-name-first to
- * make prefix matching unambiguous (e.g. "Lightly Played" must be
- * tested before "Light" if any future shorter tier appears).
+ * The five TCGplayer condition tiers, ordered best-to-worst. Two things
+ * depend on this ordering: prefix matching in parseConditionAndVariant
+ * (longer names must be tested before any shorter prefix of them), and
+ * the monotonicity walk in capConditionMarkets (best condition first).
  */
 const TCG_CONDITIONS = ['Near Mint', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Damaged'];
+
+/**
+ * Cache key for a per-SKU market price: lowercased `condition|variant`,
+ * with 'Normal' as the default variant (the API's name for the base SKU).
+ *
+ * @param {string | null | undefined} condition
+ * @param {string | null | undefined} variant
+ * @returns {string}
+ */
+function skuLookupKey(condition, variant) {
+  return `${(condition || '').trim().toLowerCase()}|${(variant || 'Normal').trim().toLowerCase()}`;
+}
+
+/**
+ * Enforce condition monotonicity on a per-SKU market-price map (keys from
+ * `skuLookupKey`): within each variant, a worse-condition copy of the same
+ * card can never be worth more than a better-condition one. TCGplayer's
+ * per-condition market prices break this on thin data — low-volume tiers
+ * recalculate days later than Near Mint, so on a falling card the stale
+ * Lightly Played "market" can sit above the fresh Near Mint one, and any
+ * listing under the stale figure earns a bogus DEAL chip.
+ *
+ * Walks TCG_CONDITIONS best→worst per variant carrying a running minimum
+ * and caps each tier's market at it. Missing tiers don't update the
+ * minimum. Returns a new Map; the input is not mutated.
+ *
+ * @param {Map<string, number>} markets
+ * @returns {Map<string, number>}
+ */
+function capConditionMarkets(markets) {
+  const out = new Map(markets);
+  const variants = new Set();
+  for (const key of out.keys()) {
+    const sep = key.indexOf('|');
+    if (sep !== -1) variants.add(key.slice(sep + 1));
+  }
+  for (const variant of variants) {
+    let runningMin = Infinity;
+    for (const c of TCG_CONDITIONS) {
+      const key = `${c.toLowerCase()}|${variant}`;
+      const v = out.get(key);
+      if (!Number.isFinite(v)) continue;
+      const capped = Math.min(v, runningMin);
+      out.set(key, capped);
+      runningMin = capped;
+    }
+  }
+  return out;
+}
 
 /**
  * Split a TCGplayer listing's condition text into a `{condition, variant}`
@@ -554,6 +604,8 @@ if (typeof module !== 'undefined' && module.exports) {
     parsePrice,
     parseShippingCost,
     TCG_CONDITIONS,
+    skuLookupKey,
+    capConditionMarkets,
     parseConditionAndVariant,
     getUrlConditions,
     listingMatchesHeadlineCondition,

@@ -383,6 +383,68 @@ test('createCoalescedRunner: single trigger runs fn once', async () => {
   assert.equal(runs, 1);
 });
 
+test('skuLookupKey lowercases, trims, and defaults the variant to Normal', () => {
+  assert.equal(lib.skuLookupKey('Near Mint', 'Holofoil'), 'near mint|holofoil');
+  assert.equal(lib.skuLookupKey('  Lightly Played ', ' Reverse Holofoil '), 'lightly played|reverse holofoil');
+  assert.equal(lib.skuLookupKey('Near Mint', null), 'near mint|normal');
+  assert.equal(lib.skuLookupKey('Near Mint', ''), 'near mint|normal');
+});
+
+test('capConditionMarkets caps stale worse-condition markets (Ampharos #111 replay)', () => {
+  // TCGplayer's real numbers for productId 694681: LP and MP "markets"
+  // above NM because their thin tiers recalculated days later on a
+  // falling card. HP absent. Damaged already monotonic.
+  const input = new Map([
+    ['near mint|holofoil', 15.53],
+    ['lightly played|holofoil', 16.82],
+    ['moderately played|holofoil', 17.88],
+    ['damaged|holofoil', 13.74],
+  ]);
+  const out = lib.capConditionMarkets(input);
+  assert.equal(out.get('near mint|holofoil'), 15.53);
+  assert.equal(out.get('lightly played|holofoil'), 15.53);
+  assert.equal(out.get('moderately played|holofoil'), 15.53);
+  assert.equal(out.get('damaged|holofoil'), 13.74);
+  // Input map untouched.
+  assert.equal(input.get('lightly played|holofoil'), 16.82);
+});
+
+test('capConditionMarkets caps each variant independently', () => {
+  const out = lib.capConditionMarkets(
+    new Map([
+      ['near mint|normal', 1.0],
+      ['lightly played|normal', 2.0],
+      ['near mint|holofoil', 10.0],
+      ['lightly played|holofoil', 8.0],
+    ])
+  );
+  assert.equal(out.get('lightly played|normal'), 1.0);
+  assert.equal(out.get('near mint|holofoil'), 10.0);
+  assert.equal(out.get('lightly played|holofoil'), 8.0);
+});
+
+test('capConditionMarkets: missing better tiers do not cap, worse tiers chain', () => {
+  // No NM: LP is the best available tier and stays as-is; MP caps to LP.
+  const out = lib.capConditionMarkets(
+    new Map([
+      ['lightly played|normal', 5.0],
+      ['moderately played|normal', 6.0],
+    ])
+  );
+  assert.equal(out.get('lightly played|normal'), 5.0);
+  assert.equal(out.get('moderately played|normal'), 5.0);
+});
+
+test('capConditionMarkets leaves monotonic maps unchanged and handles empty', () => {
+  const monotonic = new Map([
+    ['near mint|normal', 3.0],
+    ['lightly played|normal', 2.5],
+    ['damaged|normal', 0.5],
+  ]);
+  assert.deepEqual([...lib.capConditionMarkets(monotonic)], [...monotonic]);
+  assert.equal(lib.capConditionMarkets(new Map()).size, 0);
+});
+
 test('cacheUntilNull caches non-null results', async () => {
   const cache = new Map();
   let fetches = 0;
