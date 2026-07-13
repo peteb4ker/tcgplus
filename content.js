@@ -618,7 +618,7 @@
     const productId = findCartProductId(item);
     const conditionText = findCartConditionText(item);
     const priceEl = findCartPriceEl(item);
-    if (!productId || !conditionText || !priceEl) {
+    if (!priceEl) {
       item.dataset.tcgplus = 'done';
       return;
     }
@@ -627,19 +627,37 @@
       item.dataset.tcgplus = 'done';
       return;
     }
+    // Stash unit price + quantity as soon as they're known, market or
+    // not — the checkout verdict aggregates from these datasets, and a
+    // row with no market data still contributes at its listed price.
+    item.dataset.tcgplusUnitPrice = String(price);
+    item.dataset.tcgplusQty = String(parseCartQuantity(priceEl.textContent));
+    if (!productId || !conditionText) {
+      item.dataset.tcgplus = 'done';
+      renderCheckoutVerdict();
+      return;
+    }
     const { condition, variant } = parseConditionAndVariant(conditionText);
     if (!condition) {
       // Unknown condition tier — can't resolve to a SKU. No fallback on
       // cart rows: there's no headline market price to gate against, so a
       // chip would be a guess. Better to skip.
       item.dataset.tcgplus = 'done';
+      renderCheckoutVerdict();
       return;
     }
     const pricing = await fetchProductSkuPricing(productId);
     item.dataset.tcgplus = 'done';
-    if (!pricing) return;
-    const market = pricing.get(skuLookupKey(condition, variant));
-    if (!Number.isFinite(market)) return;
+    const market = pricing ? pricing.get(skuLookupKey(condition, variant)) : undefined;
+    if (!Number.isFinite(market)) {
+      renderCheckoutVerdict();
+      return;
+    }
+    item.dataset.tcgplusCartMarket = String(market);
+    // Datasets changed without any childList mutation (attribute writes
+    // don't wake the observer), so refresh the verdict directly. It's
+    // idempotent; the chip injection below re-triggers it via scan too.
+    renderCheckoutVerdict();
 
     // Inject the chip as a sibling AFTER the price element rather than
     // a child. The cart-row layout right-aligns the price `<p>`; widening
@@ -944,6 +962,128 @@
     }
   }
 
+  // -- Checkout all-in vs market verdict -----------------------------------
+  // At a card show you'd pay the sum of the cards' market prices — no
+  // shipping, no tax. Checkout is where the real all-in cost is finally
+  // known, so it gets a breakdown comparing the two (#113). Gated on an
+  // "Est. Tax" row being present and parseable, which self-scopes this
+  // to the checkout page: /cart has no tax row.
+  /** @type {HTMLElement | null} */
+  let checkoutVerdict = null;
+
+  /**
+   * Find the LABEL element of an Order Summary row ("Shipping",
+   * "Est. Tax", …). Matches by label text rather than class names — the
+   * checkout DOM's class names are unverified, and label text survives
+   * reorganisation better. The `$` exclusion is what keeps this precise:
+   * a row container's text ("Shipping$1.99") contains the label too, and
+   * without the exclusion it matches first in document order, sending
+   * the amount parse to the WRONG scope (the whole details block, whose
+   * first dollar figure belongs to another row).
+   *
+   * @param {RegExp} labelRe
+   * @returns {Element | null}
+   */
+  function findOrderSummaryLabel(labelRe) {
+    const candidates = document.querySelectorAll('div, span, p, dt, td, li, h3, h4');
+    for (const el of candidates) {
+      const own = (el.textContent || '').trim();
+      if (own.length > 24 || own.includes('$') || !labelRe.test(own)) continue;
+      return el;
+    }
+    return null;
+  }
+
+  /**
+   * Dollar amount for an Order Summary row, located from its label:
+   * the value element is the label's next sibling (label/value row
+   * pairs) or, failing that, anywhere in the parent row. "FREE" counts
+   * as $0.
+   *
+   * @param {RegExp} labelRe
+   * @returns {number | null}
+   */
+  function findOrderSummaryAmount(labelRe) {
+    const label = findOrderSummaryLabel(labelRe);
+    if (!label) return null;
+    for (const source of [label.nextElementSibling, label.parentElement]) {
+      if (!source) continue;
+      const text = source.textContent || '';
+      const v = parseUsdAmount(text);
+      if (v != null) return v;
+      if (/free/i.test(text)) return 0;
+    }
+    return null;
+  }
+
+  function renderCheckoutVerdict() {
+    if (checkoutVerdict && !document.body.contains(checkoutVerdict)) {
+      checkoutVerdict = null;
+    }
+
+    const tax = findOrderSummaryAmount(/^est\.?\s*tax\b/i);
+    const rows = document.querySelectorAll('.package-item');
+    /** @type {Array<{ price: number, qty: number, market: number | null }>} */
+    const items = [];
+    rows.forEach((rawEl) => {
+      const el = /** @type {HTMLElement} */ (rawEl);
+      const price = parseFloat(el.dataset.tcgplusUnitPrice || '');
+      if (!Number.isFinite(price)) return;
+      const qty = parseInt(el.dataset.tcgplusQty || '1', 10) || 1;
+      const market = parseFloat(el.dataset.tcgplusCartMarket || '');
+      items.push({ price, qty, market: Number.isFinite(market) ? market : null });
+    });
+
+    const verdict =
+      tax == null
+        ? null
+        : computeCartVerdict({
+            items,
+            itemsTotal: findOrderSummaryAmount(/^items?\s*total\b/i),
+            shipping: findOrderSummaryAmount(/^shipping\b/i),
+            tax,
+          });
+
+    // Not checkout (no tax row), or nothing aggregated yet: tear down.
+    if (!verdict) {
+      if (checkoutVerdict) {
+        checkoutVerdict.remove();
+        checkoutVerdict = null;
+      }
+      return;
+    }
+
+    if (!checkoutVerdict) {
+      // Mount inside the Order Summary details block: the container of
+      // the Est. Tax row, appended after its last row so the verdict
+      // sits directly under the numbers it's derived from.
+      const taxLabel = findOrderSummaryLabel(/^est\.?\s*tax\b/i);
+      const row = taxLabel && taxLabel.parentElement;
+      if (!row || !row.parentElement) return;
+      checkoutVerdict = document.createElement('div');
+      checkoutVerdict.className = 'tcgplus-checkout-verdict';
+      row.parentElement.appendChild(checkoutVerdict);
+    }
+
+    const colors = chipColorForPct(verdict.pct);
+    const itemsDelta = verdict.itemsTotal - verdict.marketValue;
+    const noteHtml =
+      verdict.unresolvedCount > 0
+        ? `<div class="tcgplus-checkout-verdict__note">${verdict.unresolvedCount} item${verdict.unresolvedCount === 1 ? '' : 's'} counted at listed price (no market data)</div>`
+        : '';
+    const wantHtml =
+      `<div class="tcgplus-checkout-verdict__title">TCGPlus · vs market</div>` +
+      `<div class="tcgplus-checkout-verdict__row"><span>Market value (${verdict.unitCount} item${verdict.unitCount === 1 ? '' : 's'})</span><span>$${verdict.marketValue.toFixed(2)}</span></div>` +
+      `<div class="tcgplus-checkout-verdict__row"><span>Items total</span><span>$${verdict.itemsTotal.toFixed(2)} (${formatAbsDiff(itemsDelta)})</span></div>` +
+      `<div class="tcgplus-checkout-verdict__row"><span>+ Shipping</span><span>$${verdict.shipping.toFixed(2)}</span></div>` +
+      `<div class="tcgplus-checkout-verdict__row"><span>+ Est. tax</span><span>$${verdict.tax.toFixed(2)}</span></div>` +
+      `<div class="tcgplus-checkout-verdict__total"><span>All-in vs market</span><span class="tcgplus-price-chip" style="background:${colors.bg};color:${colors.fg};" title="$${verdict.allIn.toFixed(2)} all-in vs $${verdict.marketValue.toFixed(2)} market">${formatAbsDiff(verdict.delta)} (${formatPctDiff(verdict.pct)})</span></div>` +
+      noteHtml;
+    if (checkoutVerdict.innerHTML !== wantHtml) {
+      checkoutVerdict.innerHTML = wantHtml;
+    }
+  }
+
   function scan() {
     document.querySelectorAll('.listing-item:not([data-tcgplus])').forEach((el) => {
       annotate(el);
@@ -969,6 +1109,7 @@
     // listings; nothing else notices when listings are removed).
     renderPanel();
     renderOosBanner();
+    renderCheckoutVerdict();
   }
 
   let scanTimer = null;

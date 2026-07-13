@@ -171,6 +171,45 @@ html.tcgplus-hide-oos .search-result:has(.mp-oos-badge) {
   outline-offset: 2px;
 }
 
+/* Checkout all-in vs market breakdown, mounted inside TCGplayer's
+   Order Summary details block under the Est. Tax row. Same font scale
+   as the summary rows so it reads as part of the card, with a subtle
+   top border marking where TCGplayer's numbers end and ours begin. */
+.tcgplus-checkout-verdict {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e6ea;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #1a2a3a;
+}
+.tcgplus-checkout-verdict__title {
+  font-weight: 700;
+  font-size: 12px;
+  color: #5a6b7c;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+.tcgplus-checkout-verdict__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tcgplus-checkout-verdict__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+.tcgplus-checkout-verdict__note {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #5a6b7c;
+}
+
 html.tcgplus-filter-home .listing-item:not([data-tcgplus-tier='home']) {
   display: none !important;
 }

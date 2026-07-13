@@ -383,6 +383,86 @@ test('createCoalescedRunner: single trigger runs fn once', async () => {
   assert.equal(runs, 1);
 });
 
+test('parseUsdAmount accepts zero, rejects non-amounts', () => {
+  assert.equal(lib.parseUsdAmount('$0.00'), 0);
+  assert.equal(lib.parseUsdAmount('$3.20'), 3.2);
+  assert.equal(lib.parseUsdAmount('Est. Tax $1,234.56'), 1234.56);
+  assert.equal(lib.parseUsdAmount('FREE'), null);
+  assert.equal(lib.parseUsdAmount(''), null);
+  assert.equal(lib.parseUsdAmount(null), null);
+});
+
+test('parseCartQuantity extracts the multiplier, defaults to 1', () => {
+  assert.equal(lib.parseCartQuantity('2 × $0.25'), 2);
+  assert.equal(lib.parseCartQuantity('12 x $1.00'), 12);
+  assert.equal(lib.parseCartQuantity('$11.58'), 1);
+  assert.equal(lib.parseCartQuantity(''), 1);
+  assert.equal(lib.parseCartQuantity(null), 1);
+  // A bare 'x' with no following price is not a multiplier.
+  assert.equal(lib.parseCartQuantity('Pikachu x Van Gogh $5.00'), 1);
+});
+
+test('computeCartVerdict replays the #113 checkout screenshot', () => {
+  // 2× Grass Energy $0.25 (market $1.31), Ceruledge $11.58 ($13.60),
+  // Flygon $7.71 ($9.64), Toxtricity $10.02 ($12.28).
+  // Items Total $29.81 + shipping $1.99 + tax $3.20 = $35.00 all-in
+  // vs $38.14 market → -$3.14 (-8.2%).
+  const v = lib.computeCartVerdict({
+    items: [
+      { price: 0.25, qty: 2, market: 1.31 },
+      { price: 11.58, qty: 1, market: 13.6 },
+      { price: 7.71, qty: 1, market: 9.64 },
+      { price: 10.02, qty: 1, market: 12.28 },
+    ],
+    itemsTotal: 29.81,
+    shipping: 1.99,
+    tax: 3.2,
+  });
+  assert.ok(v);
+  assert.equal(v.marketValue.toFixed(2), '38.14');
+  assert.equal(v.itemsTotal, 29.81);
+  assert.equal(v.allIn.toFixed(2), '35.00');
+  assert.equal(v.delta.toFixed(2), '-3.14');
+  assert.equal(v.pct.toFixed(1), '-8.2');
+  assert.equal(v.unitCount, 5);
+  assert.equal(v.unresolvedCount, 0);
+});
+
+test('computeCartVerdict counts unresolved items at listed price', () => {
+  const v = lib.computeCartVerdict({
+    items: [
+      { price: 10, qty: 1, market: 12 },
+      { price: 5, qty: 1, market: null },
+    ],
+    shipping: 1,
+    tax: 1,
+  });
+  assert.ok(v);
+  // Unresolved item contributes its price to BOTH sides: no delta effect.
+  assert.equal(v.marketValue, 17);
+  assert.equal(v.itemsTotal, 15); // computed fallback (no DOM override)
+  assert.equal(v.allIn, 17);
+  assert.equal(v.delta, 0);
+  assert.equal(v.unresolvedCount, 1);
+});
+
+test('computeCartVerdict falls back to computed items total and defaults qty', () => {
+  const v = lib.computeCartVerdict({
+    items: [{ price: 4, market: 5 }],
+    tax: 0,
+  });
+  assert.ok(v);
+  assert.equal(v.itemsTotal, 4);
+  assert.equal(v.shipping, 0);
+  assert.equal(v.unitCount, 1);
+  assert.equal(v.delta, -1);
+});
+
+test('computeCartVerdict returns null with nothing to aggregate', () => {
+  assert.equal(lib.computeCartVerdict({ items: [] }), null);
+  assert.equal(lib.computeCartVerdict({ items: [{ price: NaN }] }), null);
+});
+
 test('skuLookupKey lowercases, trims, and defaults the variant to Normal', () => {
   assert.equal(lib.skuLookupKey('Near Mint', 'Holofoil'), 'near mint|holofoil');
   assert.equal(lib.skuLookupKey('  Lightly Played ', ' Reverse Holofoil '), 'lightly played|reverse holofoil');
