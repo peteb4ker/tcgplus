@@ -1003,46 +1003,44 @@
   let checkoutVerdict = null;
 
   /**
-   * Find the LABEL element of an Order Summary row ("Shipping",
-   * "Est. Tax", …). Matches by label text rather than class names — the
-   * checkout DOM's class names are unverified, and label text survives
-   * reorganisation better. The `$` exclusion is what keeps this precise:
-   * a row container's text ("Shipping$1.99") contains the label too, and
-   * without the exclusion it matches first in document order, sending
-   * the amount parse to the WRONG scope (the whole details block, whose
-   * first dollar figure belongs to another row).
+   * Find an Order Summary ROW by its label and extract its amount.
+   * Matched by label text rather than class names — the checkout DOM's
+   * class names are unverified, and label text survives reorganisation
+   * better.
+   *
+   * TCGplayer's real rows put the label in a bare TEXT NODE next to the
+   * value span — `<div>Est. Tax <span>$3.20</span></div>` — so there is
+   * no element whose text is only the label (#122). Match instead on
+   * elements whose normalized text STARTS with the label; the length
+   * and child caps are what keep this precise — a container holding
+   * several rows ("Items 5 Items Total $29.81 Shipping…") blows past
+   * both and can't shadow the row it contains.
+   *
+   * Amount: from the row's own text ("FREE" counts as $0), falling back
+   * to the next sibling for flat layouts where a label-only element
+   * matched (`<span>Est. Tax</span><span>$3.20</span>`).
    *
    * @param {RegExp} labelRe
-   * @returns {Element | null}
+   * @param {ParentNode} [scope]  container to search within; defaults to
+   *   the whole document. Callers pass the Est. Tax row's parent so the
+   *   left-column package box (which has its own "Item Total" and
+   *   "Shipping FREE" rows) can't shadow the Order Summary's values.
+   * @returns {{ row: Element, amount: number } | null}
    */
-  function findOrderSummaryLabel(labelRe) {
-    const candidates = document.querySelectorAll('div, span, p, dt, td, li, h3, h4');
+  function findOrderSummaryRow(labelRe, scope) {
+    const candidates = (scope || document).querySelectorAll('div, span, p, dt, td, li, tr, h3, h4');
     for (const el of candidates) {
-      const own = (el.textContent || '').trim();
-      if (own.length > 24 || own.includes('$') || !labelRe.test(own)) continue;
-      return el;
-    }
-    return null;
-  }
-
-  /**
-   * Dollar amount for an Order Summary row, located from its label:
-   * the value element is the label's next sibling (label/value row
-   * pairs) or, failing that, anywhere in the parent row. "FREE" counts
-   * as $0.
-   *
-   * @param {RegExp} labelRe
-   * @returns {number | null}
-   */
-  function findOrderSummaryAmount(labelRe) {
-    const label = findOrderSummaryLabel(labelRe);
-    if (!label) return null;
-    for (const source of [label.nextElementSibling, label.parentElement]) {
-      if (!source) continue;
-      const text = source.textContent || '';
-      const v = parseUsdAmount(text);
-      if (v != null) return v;
-      if (/free/i.test(text)) return 0;
+      const own = (el.textContent || '').trim().replace(/\s+/g, ' ');
+      if (own.length > 40 || el.childElementCount > 3 || !labelRe.test(own)) continue;
+      let amount = parseUsdAmount(own);
+      if (amount == null && /\bfree\b/i.test(own)) amount = 0;
+      if (amount == null) {
+        const sib = el.nextElementSibling;
+        const sibText = sib ? (sib.textContent || '').trim() : '';
+        amount = parseUsdAmount(sibText);
+        if (amount == null && /\bfree\b/i.test(sibText)) amount = 0;
+      }
+      if (amount != null) return { row: el, amount };
     }
     return null;
   }
@@ -1052,7 +1050,7 @@
       checkoutVerdict = null;
     }
 
-    const tax = findOrderSummaryAmount(/^est\.?\s*tax\b/i);
+    const taxHit = findOrderSummaryRow(/^est\.?\s*tax\b/i);
     const rows = document.querySelectorAll('.package-item');
     /** @type {Array<{ price: number, qty: number, market: number | null }>} */
     const items = [];
@@ -1065,15 +1063,20 @@
       items.push({ price, qty, market: Number.isFinite(market) ? market : null });
     });
 
-    const verdict =
-      tax == null
-        ? null
-        : computeCartVerdict({
-            items,
-            itemsTotal: findOrderSummaryAmount(/^items?\s*total\b/i),
-            shipping: findOrderSummaryAmount(/^shipping\b/i),
-            tax,
-          });
+    // Scope the other lookups to the Est. Tax row's container so the
+    // left-column package box (its own "Item Total" / "Shipping FREE"
+    // rows) can't shadow the Order Summary's values (#122).
+    const summaryScope = taxHit && taxHit.row.parentElement ? taxHit.row.parentElement : undefined;
+    const itemsTotalHit = taxHit ? findOrderSummaryRow(/^items?\s*total\b/i, summaryScope) : null;
+    const shippingHit = taxHit ? findOrderSummaryRow(/^shipping\b/i, summaryScope) : null;
+    const verdict = !taxHit
+      ? null
+      : computeCartVerdict({
+          items,
+          itemsTotal: itemsTotalHit ? itemsTotalHit.amount : null,
+          shipping: shippingHit ? shippingHit.amount : null,
+          tax: taxHit.amount,
+        });
 
     // Not checkout (no tax row), or nothing aggregated yet: tear down.
     if (!verdict) {
@@ -1088,12 +1091,11 @@
       // Mount inside the Order Summary details block: the container of
       // the Est. Tax row, appended after its last row so the verdict
       // sits directly under the numbers it's derived from.
-      const taxLabel = findOrderSummaryLabel(/^est\.?\s*tax\b/i);
-      const row = taxLabel && taxLabel.parentElement;
-      if (!row || !row.parentElement) return;
+      const container = taxHit.row.parentElement;
+      if (!container) return;
       checkoutVerdict = document.createElement('div');
       checkoutVerdict.className = 'tcgplus-checkout-verdict';
-      row.parentElement.appendChild(checkoutVerdict);
+      container.appendChild(checkoutVerdict);
     }
 
     const colors = chipColorForPct(verdict.pct);
