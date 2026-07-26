@@ -40,14 +40,34 @@ const CHECKOUT_HTML = `<!doctype html>
           ${cartRow('row--toxtricity', 601004, 'Near Mint Holofoil', '$10.02')}
         </ul>
       </div>
+      <!-- Left-column per-package subtotal box, replayed from the real
+           checkout DOM (#122). Deliberately carries CONFLICTING "Item
+           Total" and "Shipping" values and sits before the Order Summary
+           in document order — the verdict's lookups must be scoped to
+           the Est. Tax row's container and never read these. -->
+      <section class="package-summary-container">
+        <section class="package-summary full-width">
+          <section class="subtotal-section">
+            <h2>Subtotal:</h2>
+            <span data-testid="packageSubtotal">$11.92</span>
+          </section>
+          <section class="items-breakdown">
+            <div>Items <span data-testid="packageItemCount">20</span></div>
+            <div>Item Total <span data-testid="packageItemTotal">$11.92</span></div>
+            <div>Shipping <span data-testid="packageShipping">FREE</span></div>
+          </section>
+        </section>
+      </section>
+      <!-- Order Summary rows use TCGplayer's real shape: label as a bare
+           text node beside the value span (#122). -->
       <aside class="order-summary">
         <h2>Order Summary</h2>
         <div class="order-summary__details">
-          <div class="summary-row"><span>Packages</span><span>1</span></div>
-          <div class="summary-row"><span>Items</span><span>5</span></div>
-          <div class="summary-row"><span>Items Total</span><span>$29.81</span></div>
-          <div class="summary-row"><span>Shipping</span><span>$1.99</span></div>
-          <div class="summary-row"><span>Est. Tax</span><span>$3.20</span></div>
+          <div class="summary-row">Packages <span>1</span></div>
+          <div class="summary-row">Items <span>5</span></div>
+          <div class="summary-row">Items Total <span>$29.81</span></div>
+          <div class="summary-row">Shipping <span>$1.99</span></div>
+          <div class="summary-row">Est. Tax <span>$3.20</span></div>
         </div>
       </aside>
     </main>
@@ -127,6 +147,29 @@ test.describe('Checkout all-in vs market verdict (#113)', () => {
     await expect(verdict.locator('.tcgplus-checkout-verdict__note')).toHaveText(
       '1 item counted at listed price (no market data)'
     );
+  });
+
+  test('handles FREE shipping and the singular "Item Total" label', async () => {
+    ({ ctx } = await launchWithExtension());
+    page = await ctx.newPage();
+    const freeHtml = CHECKOUT_HTML.replace(
+      /<div class="summary-row">Items Total[\s\S]*?<div class="summary-row">Est\. Tax/,
+      `<div class="summary-row">Item Total <span>$29.81</span></div>
+          <div class="summary-row">Shipping <span>FREE</span></div>
+          <div class="summary-row">Est. Tax`
+    );
+    await mockTCGplayer(page, { productSkus: SKUS, skuMarketPrices: SKU_PRICES, cart: null });
+    await page.route('https://www.tcgplayer.com/checkout**', (route) =>
+      route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: freeHtml })
+    );
+    await page.goto('https://www.tcgplayer.com/checkout');
+
+    const verdict = page.locator('.tcgplus-checkout-verdict');
+    await expect(verdict).toBeVisible();
+    // FREE → $0.00 shipping; all-in 29.81 + 0 + 3.20 = 33.01 vs 38.14
+    // → -5.13/38.14 = -13.45% → -13.5% at one decimal.
+    await expect(verdict).toContainText('+ Shipping$0.00');
+    await expect(verdict.locator('.tcgplus-price-chip')).toHaveText('-$5.13 (-13.5%)');
   });
 
   test('does not render on the cart page (no Est. Tax row)', async () => {
