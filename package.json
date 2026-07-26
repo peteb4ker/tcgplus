@@ -14,6 +14,7 @@
     "release": "node tools/bump-version.js",
     "dev:build": "node tools/build-dev.js",
     "demo:record": "node tools/record-demo.js",
+    "audit:selectors": "node tools/audit-selectors.js",
     "prepare": "husky"
   },
   "devDependencies": {
