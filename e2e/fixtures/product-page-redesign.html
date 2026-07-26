@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Product page · 2026 redesign fixture (#117)</title>
+  </head>
+  <body>
+    <header>
+      <button class="mp-header__content__cart-count" type="button" aria-label="Cart">
+        <span class="tcg-badge mp-header__content__cart-count__chip">0</span>
+      </button>
+    </header>
+
+    <!-- Redesign: market price lives in the price-guide header table as a
+         label/value cell pair with no stable class. No .price-points. -->
+    <div class="price-guide">
+      <div class="near-mint__header price-guide__near-mint__header">
+        <div class="near-mint__header__title">Near Mint Comparison Prices</div>
+      </div>
+      <section class="data-table price-guide__near-mint" data-testid="near-mint-table">
+        <table>
+          <tr>
+            <td>Normal:</td>
+            <td>$10.00</td>
+            <td>Reverse Holofoil:</td>
+            <td>$25.00</td>
+          </tr>
+        </table>
+      </section>
+      <div class="header">
+        <table>
+          <tr>
+            <td>Market Price</td>
+            <td>$10.00</td>
+          </tr>
+          <tr>
+            <td>Most Recent Sale</td>
+            <td>N/A</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <section class="listings">
+      <article class="listing-item" data-testid="listing-item--nm">
+        <section class="listing-item__sku">
+          <div class="listing-item__details">
+            <span class="listing-item__listing-data__info__price">$8.00</span>
+            <span class="listing-item__listing-data__info__shipping-message">
+              + $1.49 Shipping
+              <span>Free Shipping on Orders Over $5</span>
+            </span>
+            <div class="listing-item__condition"><a class="link-hidden" href="#">Near Mint</a></div>
+          </div>
+        </section>
+        <div class="listing-item__seller-info">
+          <div class="seller-info">
+            <div class="seller-info__profile">
+              <a class="seller-info__name" href="/sellers/Home-Seller/aaaaaaaa">Home Seller</a>
+              <div class="seller-info__content"></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="listing-item" data-testid="listing-item--lp-holo">
+        <section class="listing-item__sku">
+          <div class="listing-item__details">
+            <span class="listing-item__listing-data__info__price">$7.00</span>
+            <span class="listing-item__listing-data__info__shipping-message"> + $0.99 Shipping </span>
+            <div class="listing-item__condition"><a class="link-hidden" href="#">Lightly Played Holofoil</a></div>
+          </div>
+        </section>
+        <div class="listing-item__seller-info">
+          <div class="seller-info">
+            <div class="seller-info__profile">
+              <a class="seller-info__name" href="/sellers/Other-Seller/cccccccc">Other Seller</a>
+              <div class="seller-info__content"></div>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- Redesign: recommendations carousel reuses product-card markup.
+         These tiles must NOT get chips on a product page. -->
+    <section class="product-recommendations__carousel">
+      <div class="search-result">
+        <a href="/product/999901/pokemon-reco-one">
+          <section class="product-card__product">
+            <span class="product-card__title">Reco One</span>
+            <div class="inventory">
+              <span class="inventory__price-with-shipping">$1.00</span>
+            </div>
+            <section class="product-card__market-price">
+              <span class="product-card__market-price--value">$2.00</span>
+            </section>
+          </section>
+        </a>
+      </div>
+      <div class="search-result">
+        <a href="/product/999902/pokemon-reco-two">
+          <section class="product-card__product">
+            <span class="product-card__title">Reco Two</span>
+            <div class="inventory">
+              <span class="inventory__price-with-shipping">$3.00</span>
+            </div>
+            <section class="product-card__market-price">
+              <span class="product-card__market-price--value">$4.00</span>
+            </section>
+          </section>
+        </a>
+      </div>
+    </section>
+  </body>
+</html>
