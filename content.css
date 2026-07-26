@@ -10,6 +10,17 @@
   gap: 4px;
   vertical-align: middle;
 }
+/* On listing rows the chips take their own line beneath the price. The
+   2026 redesign renders price + shipping as inline siblings, which
+   crowded the chips against the price figure; a block-level flex wrap
+   forces the break regardless of which element hosts the chips (the
+   shipping cell when present, the price element otherwise). Grid tiles
+   (--card) and cart rows (--cart) keep their own layouts. */
+.listing-item .tcgplus-price-chips {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
 /* In grid view the chips wrap is appended into the inventory price element
    right after the dollar amount, so it needs a small gap from the price.
    List view's chips wrap sits on its own shipping line and doesn't. */
