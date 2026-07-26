@@ -31,7 +31,7 @@ jobs:
       # which trigger fired.
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # `ref` defaults to the branch for workflow_dispatch, which is
           # wrong for a tag (re-)publish — we want the source tree as of
