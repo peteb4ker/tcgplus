@@ -264,6 +264,9 @@
   ];
   const LISTING_SHIPPING_SELECTORS = [
     '.listing-item__listing-data__info__shipping',
+    // 2026 product-page redesign appends "-message" and folds the
+    // free-shipping promo text into the same span (#117).
+    '.listing-item__listing-data__info__shipping-message',
     '.listing-item__shipping',
     '[data-testid="shipping"]',
   ];
@@ -292,6 +295,23 @@
     return null;
   }
 
+  // 2026 redesign: the product page's market price moved from
+  // .price-points__upper__price into the price-guide header table, a
+  // label cell + value cell pair with no stable class or testid (#117).
+  // Located by label text, same approach as the checkout Order Summary.
+  // The header follows the URL's Printing= filter, so it stays
+  // variant-aware on filtered pages.
+  function findPriceGuideMarket() {
+    const cells = document.querySelectorAll('.price-guide td, .price-guide th');
+    for (const cell of cells) {
+      if (!/^market price$/i.test((cell.textContent || '').trim())) continue;
+      const sib = cell.nextElementSibling;
+      const v = sib && parsePrice(sib.textContent);
+      if (v) return v;
+    }
+    return null;
+  }
+
   function findMarketPrice(item) {
     if (item) {
       const tile = item.closest('.search-result');
@@ -305,7 +325,9 @@
     // sees multiple products as the user navigates. A cached value would
     // leak the previous product's market price into chips on the new one.
     const el = document.querySelector(MARKET_PRICE_SELECTOR);
-    return el ? parsePrice(el.textContent) : null;
+    const v = el ? parsePrice(el.textContent) : null;
+    if (v) return v;
+    return findPriceGuideMarket();
   }
 
   function findListingPriceEl(item) {
@@ -342,7 +364,10 @@
   }
 
   function findListingCondition(item) {
-    const el = item.querySelector('.listing-item__listing-data__info__condition');
+    // Old-gen class first, then the 2026 redesign's .listing-item__condition.
+    // Both carry the variant inline ("Near Mint Reverse Holofoil"), so
+    // parseConditionAndVariant is unaffected by the rename (#117).
+    const el = item.querySelector('.listing-item__listing-data__info__condition, .listing-item__condition');
     return el ? (el.textContent || '').trim() : null;
   }
 
@@ -685,8 +710,12 @@
   // banner with the store name. Surface the seller's location once in that
   // banner so the per-tile suppression doesn't lose information.
 
+  // Matches both generations: .shop-by-seller-message (pre-2026) and the
+  // .shop-by-seller-banner family from the redesign (#117).
+  const SELLER_BANNER_SELECTOR = '.shop-by-seller-message, .shop-by-seller-banner';
+
   async function enhanceShopBySellerBanner() {
-    const banner = /** @type {HTMLElement | null} */ (document.querySelector('.shop-by-seller-message'));
+    const banner = /** @type {HTMLElement | null} */ (document.querySelector(SELLER_BANNER_SELECTOR));
     if (!banner || banner.dataset.tcgplus) return;
     banner.dataset.tcgplus = 'pending';
 
@@ -705,16 +734,18 @@
     const stateCode = stateCodeFromInfo(info);
     const tier = classifyState(stateCode, homeState, nearbyStates);
     const text = formatLocation(info);
-    const span = banner.querySelector('span') || banner;
-    if (!span.querySelector('.tcgplus-loc')) {
+    if (!banner.querySelector('.tcgplus-loc')) {
       const badge = document.createElement('span');
       badge.className = `tcgplus-loc tcgplus-${tier}`;
       badge.style.marginLeft = '8px';
       badge.textContent = text;
-      const strong = span.querySelector('strong');
-      if (strong && strong.parentNode === span) {
-        strong.insertAdjacentElement('afterend', badge);
+      // Anchor after the store-name element of whichever generation is
+      // present; fall back to appending to the message text / banner.
+      const store = banner.querySelector('.shop-by-seller-banner__store, strong');
+      if (store) {
+        store.insertAdjacentElement('afterend', badge);
       } else {
+        const span = banner.querySelector('.shop-by-seller-banner__message-text, span') || banner;
         span.appendChild(badge);
       }
     }
@@ -778,7 +809,7 @@
   }
 
   function isSingleSellerMode() {
-    return !!document.querySelector('.shop-by-seller-message');
+    return !!document.querySelector(SELLER_BANNER_SELECTOR);
   }
 
   async function annotate(item) {
@@ -1088,9 +1119,16 @@
     document.querySelectorAll('.listing-item:not([data-tcgplus])').forEach((el) => {
       annotate(el);
     });
-    document.querySelectorAll('.product-card__product:not([data-tcgplus])').forEach((el) => {
-      annotateProductCard(el);
-    });
+    // Grid tiles are chip targets only on search pages. The 2026 redesign
+    // renders the product page's recommendations carousel with
+    // .product-card__product markup too — chipping those tiles against
+    // their own tile market is unrequested intel on a page whose focus
+    // is the current product's listings (#117).
+    if (/\/search\//.test(location.pathname)) {
+      document.querySelectorAll('.product-card__product:not([data-tcgplus])').forEach((el) => {
+        annotateProductCard(el);
+      });
+    }
     // Always process every .package-item, not just un-annotated ones.
     // TCGplayer's responsive cart layout strips our chip at narrow
     // breakpoints without removing the .package-item itself, so a row
