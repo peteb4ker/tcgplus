@@ -182,25 +182,27 @@ html.tcgplus-hide-oos .search-result:has(.mp-oos-badge) {
   outline-offset: 2px;
 }
 
-/* Checkout all-in vs market breakdown, mounted inside TCGplayer's
-   Order Summary details block under the Est. Tax row. Same font scale
-   as the summary rows so it reads as part of the card, with a subtle
-   top border marking where TCGplayer's numbers end and ours begin. */
+/* Cart/checkout all-in vs market breakdown, mounted inside the summary
+   boxes (Cart Summary on /cart, Order Summary on checkout). Sized one
+   step below the host rows so it reads as part of the card without
+   shouting — the host boxes run ~16-18px, the verdict at 15px with
+   matching row rhythm. A subtle top border marks where TCGplayer's
+   numbers end and ours begin. */
 .tcgplus-checkout-verdict {
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid #e2e6ea;
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.8;
   color: #1a2a3a;
 }
 .tcgplus-checkout-verdict__title {
   font-weight: 700;
-  font-size: 12px;
+  font-size: 13px;
   color: #5a6b7c;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 .tcgplus-checkout-verdict__row {
   display: flex;
@@ -212,13 +214,19 @@ html.tcgplus-hide-oos .search-result:has(.mp-oos-badge) {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-top: 4px;
+  margin-top: 8px;
   font-weight: 600;
 }
 .tcgplus-checkout-verdict__note {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: #5a6b7c;
+}
+/* The verdict chip carries the headline number — scale it with the
+   block rather than the 11px inline listing chips. */
+.tcgplus-checkout-verdict__total .tcgplus-price-chip {
+  font-size: 13px;
+  padding: 3px 9px;
 }
 
 html.tcgplus-filter-home .listing-item:not([data-tcgplus-tier='home']) {
