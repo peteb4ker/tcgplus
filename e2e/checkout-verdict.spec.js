@@ -172,7 +172,7 @@ test.describe('Checkout all-in vs market verdict (#113)', () => {
     await expect(verdict.locator('.tcgplus-price-chip')).toHaveText('-$5.13 (-13.5%)');
   });
 
-  test('does not render on the cart page (no Est. Tax row)', async () => {
+  test('does not render when the page has no summary box at all', async () => {
     ({ ctx } = await launchWithExtension());
     page = await ctx.newPage();
     // Same rows, but no Order Summary: the /cart page has package-items
