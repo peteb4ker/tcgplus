@@ -993,14 +993,16 @@
     }
   }
 
-  // -- Checkout all-in vs market verdict -----------------------------------
+  // -- Cart/checkout all-in vs market verdict ------------------------------
   // At a card show you'd pay the sum of the cards' market prices — no
-  // shipping, no tax. Checkout is where the real all-in cost is finally
-  // known, so it gets a breakdown comparing the two (#113). Gated on an
-  // "Est. Tax" row being present and parseable, which self-scopes this
-  // to the checkout page: /cart has no tax row.
-  /** @type {HTMLElement | null} */
-  let checkoutVerdict = null;
+  // shipping, no tax. The verdict compares that baseline to what the cart
+  // actually costs (#113). Two anchor kinds (#136):
+  //   - Checkout's Order Summary, found via its "Est. Tax" row →
+  //     tax-inclusive all-in verdict.
+  //   - Every .cart-summary box on /cart ("Taxes calculated at checkout",
+  //     no tax row) → before-tax variant. TCGplayer keeps TWO of these
+  //     boxes in the DOM (desktop sidebar + mobile layout), so the
+  //     verdict upserts per-container rather than tracking one element.
 
   /**
    * Find an Order Summary ROW by its label and extract its amount.
@@ -1045,12 +1047,34 @@
     return null;
   }
 
-  function renderCheckoutVerdict() {
-    if (checkoutVerdict && !document.body.contains(checkoutVerdict)) {
-      checkoutVerdict = null;
-    }
+  /**
+   * @param {ReturnType<typeof computeCartVerdict>} verdict
+   * @param {boolean} preTax
+   */
+  function buildVerdictHtml(verdict, preTax) {
+    if (!verdict) return '';
+    const colors = chipColorForPct(verdict.pct);
+    const itemsDelta = verdict.itemsTotal - verdict.marketValue;
+    const taxRowHtml = preTax
+      ? ''
+      : `<div class="tcgplus-checkout-verdict__row"><span>+ Est. tax</span><span>$${verdict.tax.toFixed(2)}</span></div>`;
+    const totalLabel = preTax ? 'All-in vs market (before tax)' : 'All-in vs market';
+    const noteHtml =
+      verdict.unresolvedCount > 0
+        ? `<div class="tcgplus-checkout-verdict__note">${verdict.unresolvedCount} item${verdict.unresolvedCount === 1 ? '' : 's'} counted at listed price (no market data)</div>`
+        : '';
+    return (
+      `<div class="tcgplus-checkout-verdict__title">TCGPlus · vs market</div>` +
+      `<div class="tcgplus-checkout-verdict__row"><span>Market value (${verdict.unitCount} item${verdict.unitCount === 1 ? '' : 's'})</span><span>$${verdict.marketValue.toFixed(2)}</span></div>` +
+      `<div class="tcgplus-checkout-verdict__row"><span>Items total</span><span>$${verdict.itemsTotal.toFixed(2)} (${formatAbsDiff(itemsDelta)})</span></div>` +
+      `<div class="tcgplus-checkout-verdict__row"><span>+ Shipping</span><span>$${verdict.shipping.toFixed(2)}</span></div>` +
+      taxRowHtml +
+      `<div class="tcgplus-checkout-verdict__total"><span>${totalLabel}</span><span class="tcgplus-price-chip" style="background:${colors.bg};color:${colors.fg};" title="$${verdict.allIn.toFixed(2)} all-in vs $${verdict.marketValue.toFixed(2)} market">${formatAbsDiff(verdict.delta)} (${formatPctDiff(verdict.pct)})</span></div>` +
+      noteHtml
+    );
+  }
 
-    const taxHit = findOrderSummaryRow(/^est\.?\s*tax\b/i);
+  function renderCheckoutVerdict() {
     const rows = document.querySelectorAll('.package-item');
     /** @type {Array<{ price: number, qty: number, market: number | null }>} */
     const items = [];
@@ -1063,58 +1087,66 @@
       items.push({ price, qty, market: Number.isFinite(market) ? market : null });
     });
 
-    // Scope the other lookups to the Est. Tax row's container so the
-    // left-column package box (its own "Item Total" / "Shipping FREE"
-    // rows) can't shadow the Order Summary's values (#122).
-    const summaryScope = taxHit && taxHit.row.parentElement ? taxHit.row.parentElement : undefined;
-    const itemsTotalHit = taxHit ? findOrderSummaryRow(/^items?\s*total\b/i, summaryScope) : null;
-    const shippingHit = taxHit ? findOrderSummaryRow(/^shipping\b/i, summaryScope) : null;
-    const verdict = !taxHit
-      ? null
-      : computeCartVerdict({
-          items,
-          itemsTotal: itemsTotalHit ? itemsTotalHit.amount : null,
-          shipping: shippingHit ? shippingHit.amount : null,
-          tax: taxHit.amount,
-        });
+    // Collect anchors. Each entry renders one verdict block inside
+    // `container`, with amount lookups scoped to `scope`.
+    /** @type {Array<{ container: Element, scope: Element, tax: number | null, preTax: boolean }>} */
+    const anchors = [];
 
-    // Not checkout (no tax row), or nothing aggregated yet: tear down.
-    if (!verdict) {
-      if (checkoutVerdict) {
-        checkoutVerdict.remove();
-        checkoutVerdict = null;
+    // Checkout: the Order Summary, found via its Est. Tax row. Amount
+    // lookups scope to that row's container so the left-column package
+    // box (its own "Item Total" / "Shipping FREE" rows) can't shadow the
+    // Order Summary's values (#122).
+    const taxHit = findOrderSummaryRow(/^est\.?\s*tax\b/i);
+    if (taxHit && taxHit.row.parentElement) {
+      anchors.push({
+        container: taxHit.row.parentElement,
+        scope: taxHit.row.parentElement,
+        tax: taxHit.amount,
+        preTax: false,
+      });
+    }
+
+    // Cart: every Cart Summary box. TCGplayer renders one for the desktop
+    // sidebar and one for the mobile layout, both present in the DOM —
+    // inject into each so the verdict shows at every breakpoint (#136).
+    document.querySelectorAll('.cart-summary').forEach((box) => {
+      const container = box.querySelector('.items-breakdown') || box;
+      anchors.push({ container, scope: box, tax: null, preTax: true });
+    });
+
+    /** @type {Set<Element>} */
+    const wanted = new Set();
+    for (const anchor of anchors) {
+      const itemsTotalHit = findOrderSummaryRow(/^items?\s*total\b/i, anchor.scope);
+      const shippingHit = findOrderSummaryRow(/^(estimated\s+)?shipping\b/i, anchor.scope);
+      // A cart box with no readable Item Total row isn't a summary we
+      // can honestly extend — skip rather than render half-empty math.
+      if (anchor.preTax && !itemsTotalHit) continue;
+      const verdict = computeCartVerdict({
+        items,
+        itemsTotal: itemsTotalHit ? itemsTotalHit.amount : null,
+        shipping: shippingHit ? shippingHit.amount : null,
+        tax: anchor.tax,
+      });
+      if (!verdict) continue;
+      let el = anchor.container.querySelector(':scope > .tcgplus-checkout-verdict');
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'tcgplus-checkout-verdict';
+        anchor.container.appendChild(el);
       }
-      return;
+      wanted.add(el);
+      const wantHtml = buildVerdictHtml(verdict, anchor.preTax);
+      if (el.innerHTML !== wantHtml) {
+        el.innerHTML = wantHtml;
+      }
     }
 
-    if (!checkoutVerdict) {
-      // Mount inside the Order Summary details block: the container of
-      // the Est. Tax row, appended after its last row so the verdict
-      // sits directly under the numbers it's derived from.
-      const container = taxHit.row.parentElement;
-      if (!container) return;
-      checkoutVerdict = document.createElement('div');
-      checkoutVerdict.className = 'tcgplus-checkout-verdict';
-      container.appendChild(checkoutVerdict);
-    }
-
-    const colors = chipColorForPct(verdict.pct);
-    const itemsDelta = verdict.itemsTotal - verdict.marketValue;
-    const noteHtml =
-      verdict.unresolvedCount > 0
-        ? `<div class="tcgplus-checkout-verdict__note">${verdict.unresolvedCount} item${verdict.unresolvedCount === 1 ? '' : 's'} counted at listed price (no market data)</div>`
-        : '';
-    const wantHtml =
-      `<div class="tcgplus-checkout-verdict__title">TCGPlus · vs market</div>` +
-      `<div class="tcgplus-checkout-verdict__row"><span>Market value (${verdict.unitCount} item${verdict.unitCount === 1 ? '' : 's'})</span><span>$${verdict.marketValue.toFixed(2)}</span></div>` +
-      `<div class="tcgplus-checkout-verdict__row"><span>Items total</span><span>$${verdict.itemsTotal.toFixed(2)} (${formatAbsDiff(itemsDelta)})</span></div>` +
-      `<div class="tcgplus-checkout-verdict__row"><span>+ Shipping</span><span>$${verdict.shipping.toFixed(2)}</span></div>` +
-      `<div class="tcgplus-checkout-verdict__row"><span>+ Est. tax</span><span>$${verdict.tax.toFixed(2)}</span></div>` +
-      `<div class="tcgplus-checkout-verdict__total"><span>All-in vs market</span><span class="tcgplus-price-chip" style="background:${colors.bg};color:${colors.fg};" title="$${verdict.allIn.toFixed(2)} all-in vs $${verdict.marketValue.toFixed(2)} market">${formatAbsDiff(verdict.delta)} (${formatPctDiff(verdict.pct)})</span></div>` +
-      noteHtml;
-    if (checkoutVerdict.innerHTML !== wantHtml) {
-      checkoutVerdict.innerHTML = wantHtml;
-    }
+    // Tear down verdicts whose anchor no longer qualifies (SPA nav away,
+    // cart emptied, summary re-rendered elsewhere).
+    document.querySelectorAll('.tcgplus-checkout-verdict').forEach((el) => {
+      if (!wanted.has(el)) el.remove();
+    });
   }
 
   function scan() {
