@@ -1,6 +1,6 @@
 {
   "name": "tcgplus",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "Compares each TCGplayer listing to market price, shows shipping and seller location, and marks the deals. Free and open source.",
   "scripts": {
