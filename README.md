@@ -3,25 +3,19 @@
 [![Install from the Chrome Web Store](https://img.shields.io/chrome-web-store/v/laaddebgfkkfemgjgjibdhpnflmchjaj?label=Install%20from%20the%20Chrome%20Web%20Store&logo=googlechrome&logoColor=fff&color=4285f4&style=for-the-badge)](https://chromewebstore.google.com/detail/tcgplus/laaddebgfkkfemgjgjibdhpnflmchjaj)
 [![Chrome Web Store users](https://img.shields.io/chrome-web-store/users/laaddebgfkkfemgjgjibdhpnflmchjaj?label=users&color=05772d&style=for-the-badge)](https://chromewebstore.google.com/detail/tcgplus/laaddebgfkkfemgjgjibdhpnflmchjaj)
 
-[![CI](https://github.com/peteb4ker/tcgplus/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/peteb4ker/tcgplus/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/peteb4ker/tcgplus/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/peteb4ker/tcgplus/actions/workflows/codeql.yml)
-[![Release](https://img.shields.io/github/v/release/peteb4ker/tcgplus?label=release&color=05772d)](https://github.com/peteb4ker/tcgplus/releases/latest)
-
 TCGPlus adds the price-vs-market delta and shipping cost to every TCGplayer listing, flags the ones that still come in under market once shipping is included, and shows where the seller ships from.
 
 ![TCGPlus on a TCGplayer product page](docs/images/hero.png)
 
-<!-- TODO: record demo.gif and drop into docs/images/ -->
-
 ![TCGPlus deal chips and location filter in action](docs/images/demo.gif)
 
-It runs entirely in your browser. The only network calls it makes are to TCGplayer's own APIs.
+## Install
+
+Install TCGPlus from the [Chrome Web Store](https://chromewebstore.google.com/detail/tcgplus/laaddebgfkkfemgjgjibdhpnflmchjaj). To run an unreleased build, see [Install from source](#install-from-source).
 
 ## Features
 
-TCGPlus runs on TCGplayer product pages, on search pages (the views you use to browse a set or a vendor's listings), and on the cart page. All of the chips, badges, filters, and panel controls below work the same in both places, and the cart page additionally gets a price-vs-market chip on every line item so you can sanity-check what's still a good deal before checking out.
-
-In **grid view** on the search page, where each tile shows one product without a separate shipping line, only the price-vs-market chip appears. The only price a grid tile shows is TCGplayer's shipping-inclusive cheapest listing, so the grid chip compares that all-in price against market. Expect it to read slightly worse than the list-view delta for the same listing, which chips the bare item price and shows shipping as its own chip; the grid chip's tooltip notes that its price includes shipping. List view continues to show the full chip row (delta, shipping, Deal). When you've filtered to a single seller (the "You are shopping from" banner is visible), the seller's location moves up into the banner and the per-listing location badges are suppressed since they'd all be identical.
+TCGPlus runs on product pages, search pages, and the cart and checkout pages. The cart page also gets a price-vs-market chip on every line item, so you can sanity-check your cart before paying.
 
 ### Vendor location badges
 
@@ -32,6 +26,8 @@ Every listing gets a city/state badge under the seller's rating, color-coded by 
 - Gray: international
 - Uncolored: anywhere else in the US
 
+When you've filtered to a single seller, the location moves into the "You are shopping from" banner and the per-listing badges are hidden, since they'd all be identical.
+
 ### Click-to-filter panel
 
 A floating panel summarizes the page by tier (Home / Nearby / Other US). Click a tier to filter the listings to just that group, click again to clear. Counts reflect only the active page. The chosen filter sticks across reloads.
@@ -40,15 +36,18 @@ A floating panel summarizes the page by tier (Home / Nearby / Other US). Click a
 
 Each listing gets a row of chips that show price-vs-market, shipping cost, and whether the all-in cost is a deal.
 
-- **Price-vs-market chip**: how far the price is from the page's market price, e.g. `+$5.00 (+16.7%)`. Solid green below market. Above market shifts from yellow through orange to red, hitting full red at 10% over.
+- **Price-vs-market chip**: how far the price is from the market price, e.g. `+$5.00 (+16.7%)`. Solid green below market. Above market shifts from yellow through orange to red, hitting full red at 10% over.
 - **Shipping chip**: replaces the plain "+ $X.XX Shipping" line. Green when shipping is included, yellow under $2, red at $2 or more (labelled "high shipping").
-- **Deal chip**: a purple "DEAL" badge appears in front of the others when the listing's all-in cost would still beat the market price. The math factors in any "Free Shipping on Orders Over $X" promo on the listing, but only when the user's existing cart subtotal _with that same seller_ plus the listing's price clears the global free-shipping threshold (currently $5). If the listing is from a seller already in the cart, the Deal chip will start appearing once you've added enough to qualify.
+- **Deal chip**: a purple "DEAL" badge appears when the listing's all-in cost would still beat the market price. The math factors in any "Free Shipping on Orders Over $X" promo on the listing, but only when your existing cart subtotal _with that same seller_ plus the listing's price clears the global free-shipping threshold (currently $5).
+- On the search grid, each tile shows only the price-vs-market chip. The grid price is TCGplayer's shipping-inclusive cheapest listing, so the chip compares that all-in price against market and can read slightly worse than the list-view delta for the same listing; the chip's tooltip notes this. List view shows the full chip row.
 
-When a tile or product page shows listings across different variants (Normal / Holofoil / Reverse Holofoil) or different conditions (NM / LP / MP / HP / DM), each listing chips against its **own SKU's market price**, not the page's headline market. The extension fetches per-SKU market prices from TCGplayer's own pricing endpoints and matches each listing by (condition, variant) before computing the delta. A Reverse Holofoil Near Mint listing in a tile whose headline market is the Holofoil Near Mint price will correctly show the delta against the Reverse Holofoil market, not the Holofoil one.
+#### Which market price the chips use
 
-One correction is applied to TCGplayer's per-SKU numbers: within a variant, each condition's market price is **capped at the best condition above it** (NM, then LP, MP, HP, Damaged). TCGplayer recalculates low-volume condition tiers days later than Near Mint, so on a card whose price is moving, a stale Lightly Played "market" can sit above the fresh Near Mint one. Without the cap, an LP listing priced under that stale figure would show an inflated below-market delta and could earn a DEAL chip while costing more than the NM market. Both the delta chip and the Deal math use the capped value.
+When a page shows listings across variants (Normal / Holofoil / Reverse Holofoil) or conditions (NM / LP / MP / HP / DM), each listing chips against its **own SKU's market price**, matched by condition and variant — a Reverse Holofoil listing compares against the Reverse Holofoil market, not the page's headline.
 
-If the per-SKU lookup is unavailable (TCGplayer API down, unknown variant), the chip falls back to the headline market price but only on listings whose condition matches the headline — mismatched variants/conditions get the shipping chip only rather than a misleading delta.
+Within a variant, each condition's market price is capped at the best condition above it (NM, then LP, MP, HP, Damaged). TCGplayer recalculates thin condition tiers days later than Near Mint, so a stale LP "market" can sit above the fresh NM one; without the cap, an LP listing could show an inflated below-market delta and a DEAL chip while costing more than the NM market. Both the delta chip and the Deal math use the capped value.
+
+If the per-SKU lookup is unavailable, the chip falls back to the page's headline market price, and only on listings whose condition matches the headline — mismatched listings get the shipping chip only rather than a misleading delta.
 
 **Below market**
 
@@ -64,54 +63,48 @@ If the per-SKU lookup is unavailable (TCGplayer API down, unknown variant), the 
 
 ### Cart and checkout: all-in cost vs market
 
-At a card show you'd pay the sum of the cards' market prices in cash — no shipping, no tax. TCGPlus adds a small breakdown comparing that baseline to what your cart actually costs, on both money pages:
+At a card show you'd pay the sum of the cards' market prices in cash, with no shipping or tax. TCGPlus compares that baseline to what your cart actually costs, and puts a per-item chip on every line item:
 
-- **Cart page**: inside every Cart Summary box (the desktop sidebar and the mobile layout each get one), labeled "All-in vs market (before tax)" since TCGplayer calculates taxes at checkout. Uses the cart's Item Total and Estimated Shipping.
+- **Cart page**: in every Cart Summary box (desktop sidebar and mobile layout), labeled "All-in vs market (before tax)" since TCGplayer calculates taxes at checkout.
 - **Checkout**: in the Order Summary card under Est. Tax, with the tax included in the verdict.
 
-The breakdown shows:
-
-- **Market value**: each line item's per-SKU market price (condition- and variant-aware, same pipeline as the chips) times its quantity, summed.
-- **Items total, shipping, and est. tax**, read from the summary itself.
-- **All-in vs market**: a color-coded verdict chip, e.g. `-$3.14 (-8.2%)` — how the total you're about to pay compares to buying the same cards at market in person.
-
-Items with no market data are counted at their listed price (they can't move the verdict either way) and a note says how many. Per-item chips render on both pages alongside the breakdown.
+The breakdown shows the cart's market value (per-SKU, quantity-aware), the items total, shipping, tax where known, and a color-coded verdict chip, e.g. `-$3.14 (-8.2%)`. Items with no market data are counted at their listed price and a note says how many.
 
 ### Cart subtotal in the header
 
-The cart icon in TCGplayer's header normally shows the item count. TCGPlus adds the cart's current subtotal next to it in the same green text TCGplayer uses for listing prices, so you can see what you're spending without opening the cart. It always shows, even at `$0.00`. The number refreshes whenever the count badge changes, so adding or removing an item updates it automatically. Same number is what feeds the Deal-chip math.
+TCGPlus adds the cart's current subtotal next to the cart icon in TCGplayer's header, in the same green TCGplayer uses for prices. It shows even at `$0.00` and refreshes whenever the count badge changes. The Deal-chip math uses the same number.
 
 ### Settings page
 
-Click the gear icon on the floating panel, click the TCGPlus icon in your browser toolbar, or open **Extension options** from `chrome://extensions` — they all open the same dedicated settings page:
+Click the gear icon on the floating panel, click the TCGPlus icon in your browser toolbar, or open **Extension options** from `chrome://extensions` — they all open the same settings page:
 
 - **Home state**: pick any US state. Default is California.
 - **Nearby states**: tick zero or more. The home state is auto-disabled so you can't pick it twice. Default is the western US set (OR, WA, NV, AZ, ID, UT, MT, WY, CO, NM, AK, HI).
 - **Hide on page**: checkboxes to hide TCGplayer's price-breakdown panel, recommendations carousel, and footer.
-- **Always Near Mint**: when on, any product or search page URL without `Condition=Near+Mint` is rewritten to include it before the listings render. Off by default.
-- **Hide tiles with no matching listings**: when on, any search-result tile that has no listings matching the current search is hidden. TCGplayer flags these with an "Out of Stock" badge, but in practice it usually means a language or condition mismatch rather than true unavailability — e.g. a Japanese-language card showing up on a `Language=English` search, or a card whose only listings are LP/MP on a `Condition=Near+Mint` search. Off by default. Whenever a search-grid page has at least one of these tiles, a slim banner appears above the grid with a count (e.g. "8 tiles with no listings matching your filters") and a toggle button — so a hidden tile is never silent, and you can flip the setting without leaving the page.
+- **Always Near Mint**: rewrites any product or search URL without `Condition=Near+Mint` to include it before the listings render. Off by default.
+- **Hide tiles with no matching listings**: hides search tiles whose listings don't match your current filters. TCGplayer marks these "Out of Stock", but they're usually a language or condition mismatch rather than true unavailability. Whenever any are present, a banner above the grid shows a count and a toggle button, so hidden tiles are never silent. Off by default.
 
 Settings are stored in `chrome.storage.local`. Changes apply live to any open TCGplayer tab — no reload needed.
 
 ![TCGPlus settings page](docs/images/options-page.png)
 
-### How it works
+## Privacy
 
-TCGPlus only calls TCGplayer's own APIs:
+TCGPlus runs entirely in your browser. There is no TCGPlus server, no account, and no analytics. The only network calls it makes are to TCGplayer's own APIs:
 
 - `seller-stores-backend.tcgplayer.com/sm/seller/<key>` for each unique vendor on the page (used for the location badge).
 - `mpgateway.tcgplayer.com/v1/cart/<key>/summary` for the cart subtotal and per-seller breakdown.
 - `mp-search-api.tcgplayer.com/v2/product/<id>/details` for the SKU catalogue of each product (variant + condition), and `mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search` for per-SKU market prices. These power the variant-aware delta chip on product, search-list, and cart pages.
 
-The page's headline market price is read from the page DOM as a fallback when per-SKU pricing isn't available. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
+All four hosts are listed as host permissions in the manifest. The page's headline market price is read from the page itself as a fallback when per-SKU pricing isn't available. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
 
 ## Development
 
-Plain MV3, no build step. Edit `content.js` and `content.css`, hit reload on the extension in `chrome://extensions`, then refresh the TCGplayer tab.
+[![CI](https://github.com/peteb4ker/tcgplus/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/peteb4ker/tcgplus/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/peteb4ker/tcgplus/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/peteb4ker/tcgplus/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/peteb4ker/tcgplus?label=release&color=05772d)](https://github.com/peteb4ker/tcgplus/releases/latest)
 
-CI on GitHub Actions validates `manifest.json` and runs `node --check` on the content script. Pushing a `v*` tag builds a zip and attaches it to a GitHub Release.
-
-The fetch targets are `https://seller-stores-backend.tcgplayer.com/sm/seller/<key>` (vendor info), `https://mpgateway.tcgplayer.com/v1/cart/<key>/summary` (cart subtotal), `https://mp-search-api.tcgplayer.com/v2/product/<id>/details` (per-product SKU catalogue), and `https://mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search` (per-SKU market prices). All four are listed as host permissions in the manifest. The page's headline market price is read from the DOM at `.price-points__upper__price` as a fallback only.
+Plain MV3 extension, no build step. See [docs/development.md](docs/development.md) for the dev build, tests, and CI.
 
 ### Install from source
 
