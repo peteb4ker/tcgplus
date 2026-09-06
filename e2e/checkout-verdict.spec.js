@@ -6,8 +6,23 @@
 const { test, expect } = require('@playwright/test');
 const { launchWithExtension, mockTCGplayer } = require('./helpers/load-extension.js');
 
-/** One .package-item row in the checkout's Items in Cart column. */
-function cartRow(tid, productId, condition, priceText) {
+/**
+ * One .package-item row in the checkout's Items in Cart column.
+ * Quantity, when given, renders as the real cart/checkout <select>
+ * control — confirmed live on /cart (#149): the price cell is always a
+ * bare "$X.XX" with no embedded multiplier text.
+ *
+ * @param {string} tid
+ * @param {number} productId
+ * @param {string} condition
+ * @param {string} priceText
+ * @param {number} [qty]  omit for a single-quantity row (no <select> at all)
+ */
+function cartRow(tid, productId, condition, priceText, qty) {
+  const qtySelect =
+    qty == null
+      ? ''
+      : `<select data-testid="mp-select__UpdateProductQuantity" aria-label="Card ${productId} cart quantity"><option value="${qty}">${qty}</option></select>`;
   return `
     <li>
       <section class="package-item" data-testid="${tid}">
@@ -22,6 +37,7 @@ function cartRow(tid, productId, condition, priceText) {
             </section>
           </div>
         </section>
+        <section class="item-actions">${qtySelect}</section>
       </section>
     </li>`;
 }
@@ -34,7 +50,7 @@ const CHECKOUT_HTML = `<!doctype html>
       <h1>Items in Cart</h1>
       <div class="package">
         <ul>
-          ${cartRow('row--energy', 601001, 'Near Mint Holofoil', '2 × $0.25')}
+          ${cartRow('row--energy', 601001, 'Near Mint Holofoil', '$0.25', 2)}
           ${cartRow('row--ceruledge', 601002, 'Near Mint Holofoil', '$11.58')}
           ${cartRow('row--flygon', 601003, 'Near Mint Holofoil', '$7.71')}
           ${cartRow('row--toxtricity', 601004, 'Near Mint Holofoil', '$10.02')}

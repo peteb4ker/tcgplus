@@ -655,8 +655,19 @@
     // Stash unit price + quantity as soon as they're known, market or
     // not — the checkout verdict aggregates from these datasets, and a
     // row with no market data still contributes at its listed price.
+    //
+    // Quantity lives in a separate <select> control, never embedded in
+    // the price text (confirmed live: every row's price cell reads just
+    // "$0.27" with no multiplier, while the row's own quantity select
+    // holds the real count). A row with no select is single-quantity;
+    // parseQuantityValue(null) already defaults to 1. Getting this
+    // wrong silently priced every multi-qty row as qty 1, which the
+    // #149 coverage check then (correctly) caught as a mismatch against
+    // the cart's own total — but a wrong default was the actual bug,
+    // not a coverage gap.
+    const qtySelect = item.querySelector('select[data-testid="mp-select__UpdateProductQuantity"]');
     item.dataset.tcgplusUnitPrice = String(price);
-    item.dataset.tcgplusQty = String(parseCartQuantity(priceEl.textContent));
+    item.dataset.tcgplusQty = String(parseQuantityValue(qtySelect ? qtySelect.value : null));
     if (!productId || !conditionText) {
       item.dataset.tcgplus = 'done';
       renderCheckoutVerdict();
