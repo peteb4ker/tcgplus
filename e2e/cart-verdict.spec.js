@@ -132,4 +132,32 @@ test.describe('Cart-page before-tax market verdict (#136)', () => {
     await expect(page.locator('.package-item[data-tcgplus-chips="1"]')).toHaveCount(4);
     await expect(page.locator('.tcgplus-checkout-verdict')).toHaveCount(0);
   });
+
+  test('shows a coverage warning instead of a misleading verdict when a row is unreadable (regression for #149)', async () => {
+    // Blank out one row's price element. That row's price never parses,
+    // so annotateCartItem never stashes a data-tcgplus-unit-price for it
+    // and it's silently absent from the aggregation — while the Cart
+    // Summary box still (correctly) reports the full $34.00 Item Total.
+    // Replays the live bug: our computed total undercounts the page's
+    // own total, and the old code rendered a misleading verdict off the
+    // incomplete row set instead of noticing the gap.
+    const mismatched = CART_HTML.replace(
+      /(data-testid="row--a"[\s\S]*?<p class="price" data-testid="txtItemPrice">)\$8\.00(<\/p>)/,
+      '$1$2'
+    );
+    await mockTCGplayer(page, { cartHtml: mismatched, productSkus: SKUS, skuMarketPrices: SKU_PRICES, cart: null });
+    await page.goto('https://www.tcgplayer.com/cart');
+    // 3 of 4 rows still chip normally.
+    await expect(page.locator('.package-item[data-tcgplus-chips="1"]')).toHaveCount(3);
+
+    const verdicts = page.locator('.tcgplus-checkout-verdict');
+    await expect(verdicts).toHaveCount(2);
+    for (const i of [0, 1]) {
+      const v = verdicts.nth(i);
+      await expect(v).toContainText("Couldn't total this cart reliably");
+      // No numbers, no verdict chip — the whole point of the fix.
+      await expect(v).not.toContainText('Market value');
+      await expect(v.locator('.tcgplus-price-chip')).toHaveCount(0);
+    }
+  });
 });

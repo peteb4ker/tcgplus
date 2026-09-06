@@ -70,6 +70,8 @@ At a card show you'd pay the sum of the cards' market prices in cash, with no sh
 
 The breakdown shows the cart's market value (per-SKU, quantity-aware), the items total, shipping, tax where known, and a color-coded verdict chip, e.g. `-$3.14 (-8.2%)`. Items with no market data are counted at their listed price and a note says how many.
 
+If TCGPlus can't read a row's price or quantity, it checks its own item total against the cart's own reported total rather than guess. On a mismatch it shows a plain notice instead of a verdict, since a partial row count would make the market value and the delta wrong.
+
 ### Cart subtotal in the header
 
 TCGPlus adds the cart's current subtotal next to the cart icon in TCGplayer's header, in the same green TCGplayer uses for prices. It shows even at `$0.00` and refreshes whenever the count badge changes. The Deal-chip math uses the same number.

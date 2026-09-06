@@ -1053,6 +1053,18 @@
    */
   function buildVerdictHtml(verdict, preTax) {
     if (!verdict) return '';
+    if (!verdict.coverageOk) {
+      // Our own price×qty sum for the rows we could read disagrees with
+      // the cart's own reported items total — some rows were missed or
+      // their quantity mis-parsed (#149). Showing the breakdown anyway
+      // would present an all-in number computed from an incomplete
+      // cart, which reads as a real (and often wildly wrong) verdict.
+      // Say so instead of guessing.
+      return (
+        `<div class="tcgplus-checkout-verdict__title">TCGPlus · vs market</div>` +
+        `<div class="tcgplus-checkout-verdict__note">Couldn't total this cart reliably — some items' price or quantity didn't match the cart's own total. No verdict shown; try refreshing the page.</div>`
+      );
+    }
     const colors = chipColorForPct(verdict.pct);
     const itemsDelta = verdict.itemsTotal - verdict.marketValue;
     const taxRowHtml = preTax
