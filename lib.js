@@ -305,6 +305,16 @@ function parseCartQuantity(text) {
  * a zero contribution to the delta — and are tallied in
  * `unresolvedCount` so the caller can disclose partial coverage.
  *
+ * `items` is only as complete as the caller's row scrape: a row whose
+ * quantity or price didn't parse is silently absent from the array
+ * rather than counted wrong, so `marketValue`/`unitCount` can quietly
+ * undercount a cart that has more units than we read. Reconciled
+ * against `opts.itemsTotal` (the page's own reported total, independent
+ * of our row scrape) when provided: if our computed items total
+ * disagrees by more than rounding, some rows were missed or
+ * mis-quantified, and `coverageOk` is false — the caller should not
+ * present the verdict as trustworthy (#149).
+ *
  * @param {{
  *   items: Array<{ price: number, qty?: number, market?: number | null }>,
  *   itemsTotal?: number | null,  // DOM "Items Total" when known; falls back to computed
@@ -321,6 +331,7 @@ function parseCartQuantity(text) {
  *   pct: number,
  *   unitCount: number,
  *   unresolvedCount: number,
+ *   coverageOk: boolean,
  * } | null}  null when there's nothing to aggregate.
  */
 function computeCartVerdict(opts) {
@@ -343,13 +354,19 @@ function computeCartVerdict(opts) {
     }
   }
   if (unitCount === 0 || marketValue <= 0) return null;
-  const itemsTotal = Number.isFinite(opts.itemsTotal) ? /** @type {number} */ (opts.itemsTotal) : computedItemsTotal;
+  const domItemsTotal = Number.isFinite(opts.itemsTotal) ? /** @type {number} */ (opts.itemsTotal) : null;
+  // Tolerance is the larger of 2 cents (float/rounding noise) or 1% of
+  // the page's total, so a real coverage gap trips this but a rounding
+  // difference doesn't.
+  const tolerance = domItemsTotal == null ? Infinity : Math.max(0.02, domItemsTotal * 0.01);
+  const coverageOk = domItemsTotal == null || Math.abs(computedItemsTotal - domItemsTotal) <= tolerance;
+  const itemsTotal = domItemsTotal != null ? domItemsTotal : computedItemsTotal;
   const shipping = Number.isFinite(opts.shipping) ? /** @type {number} */ (opts.shipping) : 0;
   const tax = Number.isFinite(opts.tax) ? /** @type {number} */ (opts.tax) : 0;
   const allIn = itemsTotal + shipping + tax;
   const delta = allIn - marketValue;
   const pct = (delta / marketValue) * 100;
-  return { marketValue, itemsTotal, shipping, tax, allIn, delta, pct, unitCount, unresolvedCount };
+  return { marketValue, itemsTotal, shipping, tax, allIn, delta, pct, unitCount, unresolvedCount, coverageOk };
 }
 
 /**

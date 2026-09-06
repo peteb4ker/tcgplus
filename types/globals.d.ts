@@ -36,6 +36,7 @@ type CartVerdict = {
   pct: number;
   unitCount: number;
   unresolvedCount: number;
+  coverageOk: boolean;
 };
 declare function computeCartVerdict(opts: {
   items: Array<{ price: number; qty?: number; market?: number | null }>;

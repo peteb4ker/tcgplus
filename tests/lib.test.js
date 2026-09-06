@@ -463,6 +463,57 @@ test('computeCartVerdict returns null with nothing to aggregate', () => {
   assert.equal(lib.computeCartVerdict({ items: [{ price: NaN }] }), null);
 });
 
+test('computeCartVerdict: coverageOk true when the computed items total matches the DOM total', () => {
+  const v = lib.computeCartVerdict({
+    items: [
+      { price: 8, qty: 1, market: 10 },
+      { price: 8, qty: 1, market: 10 },
+      { price: 10, qty: 1, market: 12 },
+      { price: 8, qty: 1, market: 10 },
+    ],
+    itemsTotal: 34,
+    shipping: 1.25,
+  });
+  assert.ok(v);
+  assert.equal(v.coverageOk, true);
+});
+
+test('computeCartVerdict: coverageOk false replays the #149 stale-cart-summary bug', () => {
+  // Reported live: cart showed "Items 24 / Item Total $13.08" in
+  // TCGplayer's own summary, but the verdict's "Market value (8 items)"
+  // — our row scrape only captured 8 units' worth of price/qty (rows
+  // with an unparsed quantity default to 1, or missing rows entirely),
+  // wildly undercounting relative to the true 24-unit, $13.08 cart. The
+  // resulting "+210.7%" was nonsense for a bulk-common cart trading near
+  // market. Replaying a matching shape: 8 rows counted at $0.50 each
+  // (computed total $4.00) against a real $13.08 DOM total.
+  const items = Array.from({ length: 8 }, () => ({ price: 0.5, qty: 1, market: 0.55 }));
+  const v = lib.computeCartVerdict({ items, itemsTotal: 13.08, shipping: 1.49 });
+  assert.ok(v);
+  assert.equal(v.coverageOk, false);
+  // itemsTotal still reports the honest DOM figure...
+  assert.equal(v.itemsTotal, 13.08);
+  // ...but the caller is responsible for not presenting delta/pct as a
+  // trustworthy verdict when coverageOk is false (buildVerdictHtml).
+});
+
+test('computeCartVerdict: coverageOk tolerates rounding but not a real gap', () => {
+  const base = { items: [{ price: 10, qty: 3, market: 11 }], shipping: 0 };
+  // $30 computed vs $30.01 DOM: 1-cent rounding noise, well inside the
+  // max(0.02, 1%) tolerance.
+  assert.equal(lib.computeCartVerdict({ ...base, itemsTotal: 30.01 }).coverageOk, true);
+  // $30 computed vs $32 DOM: a real ~7% gap, must trip.
+  assert.equal(lib.computeCartVerdict({ ...base, itemsTotal: 32 }).coverageOk, false);
+});
+
+test('computeCartVerdict: coverageOk is true when no DOM items total is supplied', () => {
+  // Nothing to reconcile against — computed total IS the items total by
+  // construction, so there's no possible disagreement.
+  const v = lib.computeCartVerdict({ items: [{ price: 4, qty: 1, market: 5 }] });
+  assert.ok(v);
+  assert.equal(v.coverageOk, true);
+});
+
 test('skuLookupKey lowercases, trims, and defaults the variant to Normal', () => {
   assert.equal(lib.skuLookupKey('Near Mint', 'Holofoil'), 'near mint|holofoil');
   assert.equal(lib.skuLookupKey('  Lightly Played ', ' Reverse Holofoil '), 'lightly played|reverse holofoil');
