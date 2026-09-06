@@ -278,19 +278,25 @@ function parseUsdAmount(text) {
 }
 
 /**
- * Parse the quantity multiplier from a cart row's price text, e.g.
- * "2 × $0.25" → 2. Single-quantity rows render without a multiplier;
- * default to 1. Accepts '×' or a plain 'x'.
+ * Validate a raw cart quantity value — a quantity `<select>`'s `.value`,
+ * or anything else that should resolve to a positive whole unit count —
+ * into a usable quantity. Defaults to 1 for anything that isn't a
+ * positive whole number, including a missing control (a single-quantity
+ * row has no quantity select at all).
  *
- * @param {string | null | undefined} text
+ * TCGplayer's real cart/checkout rows put quantity in a separate
+ * `<select data-testid="mp-select__UpdateProductQuantity">`, confirmed
+ * live (#149) — never embedded in the price text. An earlier version of
+ * this codebase assumed a "2 × $0.25"-style price-text multiplier that
+ * turned out to never occur on the real site; that parser is gone, not
+ * kept around as an unexercised fallback.
+ *
+ * @param {string | number | null | undefined} value
  * @returns {number}
  */
-function parseCartQuantity(text) {
-  if (!text) return 1;
-  const m = text.match(/(\d+)\s*[×x]\s*\$/i);
-  if (!m) return 1;
-  const q = parseInt(m[1], 10);
-  return Number.isFinite(q) && q > 0 ? q : 1;
+function parseQuantityValue(value) {
+  const q = typeof value === 'number' ? value : parseInt(String(value == null ? '' : value), 10);
+  return Number.isFinite(q) && q > 0 ? Math.floor(q) : 1;
 }
 
 /**
@@ -712,7 +718,7 @@ if (typeof module !== 'undefined' && module.exports) {
     parsePrice,
     parseShippingCost,
     parseUsdAmount,
-    parseCartQuantity,
+    parseQuantityValue,
     computeCartVerdict,
     TCG_CONDITIONS,
     skuLookupKey,

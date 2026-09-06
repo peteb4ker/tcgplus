@@ -8,8 +8,23 @@
 const { test, expect } = require('@playwright/test');
 const { launchWithExtension, mockTCGplayer } = require('./helpers/load-extension.js');
 
-/** One .package-item row shaped like the real cart (condition/price by testid). */
-function cartRow(tid, productId, condition, priceText) {
+/**
+ * One .package-item row shaped like the real cart (condition/price by
+ * testid). Quantity, when given, renders as the real cart's <select>
+ * control — confirmed live (#149): TCGplayer never embeds a multiplier
+ * in the price text itself, so `priceText` is always a bare "$X.XX".
+ *
+ * @param {string} tid
+ * @param {number} productId
+ * @param {string} condition
+ * @param {string} priceText
+ * @param {number} [qty]  omit for a single-quantity row (no <select> at all)
+ */
+function cartRow(tid, productId, condition, priceText, qty) {
+  const qtySelect =
+    qty == null
+      ? ''
+      : `<select data-testid="mp-select__UpdateProductQuantity" aria-label="Card ${productId} cart quantity"><option value="${qty}">${qty}</option></select>`;
   return `
     <li>
       <section class="package-item" data-testid="${tid}">
@@ -20,6 +35,7 @@ function cartRow(tid, productId, condition, priceText) {
             <p class="price" data-testid="txtItemPrice">${priceText}</p>
           </div>
         </section>
+        <section class="item-actions">${qtySelect}</section>
       </section>
     </li>`;
 }
@@ -159,5 +175,56 @@ test.describe('Cart-page before-tax market verdict (#136)', () => {
       await expect(v).not.toContainText('Market value');
       await expect(v.locator('.tcgplus-price-chip')).toHaveCount(0);
     }
+  });
+
+  test('reads quantity from the real <select> control, not the price text (regression for #149 root cause)', async () => {
+    // Replays the live cart exactly: every row's price cell is a bare
+    // "$X.XX" (no "N × $" multiplier ever appears there — that pattern
+    // was never real), and each row's true quantity lives in its own
+    // quantity <select>. Before the fix, quantity always fell back to
+    // its default of 1, undercounting both unitCount and marketValue —
+    // and, once the #149 coverage check existed, tripping a permanent
+    // "couldn't total this cart" notice on any cart with a qty > 1 row.
+    const qtyHtml = `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8" /><title>cart · multi-qty fixture</title></head>
+  <body>
+    <main>
+      <h1>Shopping Cart</h1>
+      <div class="package">
+        <ul>
+          ${cartRow('row--a', 701001, 'Near Mint Holofoil', '$0.27', 4)}
+          ${cartRow('row--b', 701002, 'Near Mint Holofoil', '$0.32', 2)}
+          ${cartRow('row--c', 701003, 'Near Mint Holofoil', '$1.20', 1)}
+        </ul>
+      </div>
+      <section class="shopping-cart__summary">
+        <section class="cart-summary">
+          <h3> Cart Summary </h3>
+          <section class="items-breakdown">
+            <p> Items <span data-testid="txtNumberOfItems">7</span></p>
+            <p> Item Total <span>$2.92</span></p>
+            <p> Estimated Shipping <span data-testid="txtEstimatedShipping">$1.49</span></p>
+            <div class="cart-subtotal">
+              <p> Cart Subtotal <span class="subtotal-value"><span data-testid="txtCartSubtotal">$4.41</span></span></p>
+              <span>Taxes calculated at checkout</span>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>`;
+    // 4×$0.27 + 2×$0.32 + 1×$1.20 = 1.08 + 0.64 + 1.20 = $2.92 ≈ $3.00
+    // (rounding), well inside tolerance — coverage holds, a real verdict
+    // renders instead of the mismatch notice.
+    await mockTCGplayer(page, { cartHtml: qtyHtml, productSkus: SKUS, skuMarketPrices: SKU_PRICES, cart: null });
+    await page.goto('https://www.tcgplayer.com/cart');
+    await expect(page.locator('.package-item[data-tcgplus-chips="1"]')).toHaveCount(3);
+
+    const verdict = page.locator('.tcgplus-checkout-verdict');
+    await expect(verdict).toBeVisible();
+    await expect(verdict).not.toContainText("Couldn't total this cart reliably");
+    await expect(verdict).toContainText('Market value (7 items)');
   });
 });

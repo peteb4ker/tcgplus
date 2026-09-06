@@ -392,14 +392,21 @@ test('parseUsdAmount accepts zero, rejects non-amounts', () => {
   assert.equal(lib.parseUsdAmount(null), null);
 });
 
-test('parseCartQuantity extracts the multiplier, defaults to 1', () => {
-  assert.equal(lib.parseCartQuantity('2 × $0.25'), 2);
-  assert.equal(lib.parseCartQuantity('12 x $1.00'), 12);
-  assert.equal(lib.parseCartQuantity('$11.58'), 1);
-  assert.equal(lib.parseCartQuantity(''), 1);
-  assert.equal(lib.parseCartQuantity(null), 1);
-  // A bare 'x' with no following price is not a multiplier.
-  assert.equal(lib.parseCartQuantity('Pikachu x Van Gogh $5.00'), 1);
+test('parseQuantityValue validates a <select>-style quantity value (regression for #149)', () => {
+  // The real cart's quantity control is a <select> whose .value is a
+  // plain numeric string, e.g. "4" — not a price-text multiplier.
+  assert.equal(lib.parseQuantityValue('4'), 4);
+  assert.equal(lib.parseQuantityValue('1'), 1);
+  assert.equal(lib.parseQuantityValue(30), 30);
+  // Anything that isn't a positive whole number defaults to 1.
+  assert.equal(lib.parseQuantityValue('0'), 1);
+  assert.equal(lib.parseQuantityValue('-3'), 1);
+  assert.equal(lib.parseQuantityValue('abc'), 1);
+  assert.equal(lib.parseQuantityValue(''), 1);
+  assert.equal(lib.parseQuantityValue(null), 1);
+  assert.equal(lib.parseQuantityValue(undefined), 1);
+  // Fractional values floor rather than reject outright.
+  assert.equal(lib.parseQuantityValue('3.7'), 3);
 });
 
 test('computeCartVerdict replays the #113 checkout screenshot', () => {

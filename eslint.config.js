@@ -68,7 +68,7 @@ module.exports = [
         parsePrice: 'readonly',
         parseShippingCost: 'readonly',
         parseUsdAmount: 'readonly',
-        parseCartQuantity: 'readonly',
+        parseQuantityValue: 'readonly',
         computeCartVerdict: 'readonly',
         TCG_CONDITIONS: 'readonly',
         skuLookupKey: 'readonly',

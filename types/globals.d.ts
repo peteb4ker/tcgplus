@@ -25,7 +25,7 @@ declare function capConditionMarkets(markets: Map<string, number>): Map<string, 
 declare function parsePrice(text: string | null | undefined): number | null;
 declare function parseShippingCost(text: string | null | undefined): number | null;
 declare function parseUsdAmount(text: string | null | undefined): number | null;
-declare function parseCartQuantity(text: string | null | undefined): number;
+declare function parseQuantityValue(value: string | number | null | undefined): number;
 type CartVerdict = {
   marketValue: number;
   itemsTotal: number;
