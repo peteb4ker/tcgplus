@@ -17,6 +17,11 @@ What you get on every product page:
 - A row of chips next to each listing's price showing how far it is from the page's market price (continuous green-to-red gradient), the shipping cost, and a purple "DEAL" badge when the all-in cost still beats market — including TCGplayer's per-seller "Free Shipping on Orders Over $5" promo.
 - The cart's running subtotal next to the cart icon, so you can see what you're spending without opening the cart.
 
+On your cart and at checkout:
+
+- At a card show you'd pay the sum of the cards' market prices in cash — no shipping, no tax. TCGPlus adds a market-value breakdown that compares that baseline to what your cart actually costs: items, shipping, and tax where known, ending in a color-coded verdict like "-$3.14 (-8.2%)".
+- Shows in every Cart Summary box (desktop and mobile) and in the checkout Order Summary. If a row's price or quantity can't be read, TCGPlus shows a plain notice instead of guessing.
+
 In settings:
 
 - Pick your home state and any number of nearby states.
@@ -27,7 +32,7 @@ In settings:
 Privacy and trust:
 
 - TCGPlus runs entirely in your browser. There is no TCGPlus server, no account, and no analytics. Settings live in `chrome.storage.local` on your device.
-- The only network requests it makes are to TCGplayer's own endpoints (vendor info and your cart subtotal), using the session you're already logged into.
+- The only network requests it makes are to TCGplayer's own endpoints (vendor info, your cart subtotal, and per-SKU market pricing), using the session you're already logged into.
 - Open source. MIT-licensed. Source, issues, and changelog at https://github.com/peteb4ker/tcgplus
 
 TCGPlus is an independent tool. It is not affiliated with, endorsed by, or certified by TCGplayer, Inc. "TCGplayer" and the TCGplayer logo are trademarks of TCGplayer, Inc. TCGPlus only adds visual overlays and reads what's already on the page. It doesn't scrape, doesn't automate clicks or purchases, and doesn't change how TCGplayer's site behaves beyond the toggles you control in settings.
