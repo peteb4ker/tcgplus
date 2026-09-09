@@ -3,7 +3,7 @@
 [![Install from the Chrome Web Store](https://img.shields.io/chrome-web-store/v/laaddebgfkkfemgjgjibdhpnflmchjaj?label=Install%20from%20the%20Chrome%20Web%20Store&logo=googlechrome&logoColor=fff&color=4285f4&style=for-the-badge)](https://chromewebstore.google.com/detail/tcgplus/laaddebgfkkfemgjgjibdhpnflmchjaj)
 [![Chrome Web Store users](https://img.shields.io/chrome-web-store/users/laaddebgfkkfemgjgjibdhpnflmchjaj?label=users&color=05772d&style=for-the-badge)](https://chromewebstore.google.com/detail/tcgplus/laaddebgfkkfemgjgjibdhpnflmchjaj)
 
-TCGPlus adds the price-vs-market delta and shipping cost to every TCGplayer listing, flags the ones that still come in under market once shipping is included, and shows where the seller ships from.
+TCGPlus adds price-vs-market deltas, shipping cost, a deal flag, and seller location to every TCGplayer listing.
 
 ![TCGPlus on a TCGplayer product page](docs/images/hero.png)
 
@@ -15,7 +15,7 @@ Install TCGPlus from the [Chrome Web Store](https://chromewebstore.google.com/de
 
 ## Features
 
-TCGPlus runs on product pages, search pages, and the cart and checkout pages. The cart page also gets a price-vs-market chip on every line item, so you can sanity-check your cart before paying.
+TCGPlus runs on product pages, search pages, and the cart and checkout pages.
 
 ### Vendor location badges
 
@@ -39,13 +39,13 @@ Each listing gets a row of chips that show price-vs-market, shipping cost, and w
 - **Price-vs-market chip**: how far the price is from the market price, e.g. `+$5.00 (+16.7%)`. Solid green below market. Above market shifts from yellow through orange to red, hitting full red at 10% over.
 - **Shipping chip**: replaces the plain "+ $X.XX Shipping" line. Green when shipping is included, yellow under $2, red at $2 or more (labelled "high shipping").
 - **Deal chip**: a purple "DEAL" badge appears when the listing's all-in cost would still beat the market price. The math factors in any "Free Shipping on Orders Over $X" promo on the listing, but only when your existing cart subtotal _with that same seller_ plus the listing's price clears the global free-shipping threshold (currently $5).
-- On the search grid, each tile shows only the price-vs-market chip. The grid price is TCGplayer's shipping-inclusive cheapest listing, so the chip compares that all-in price against market and can read slightly worse than the list-view delta for the same listing; the chip's tooltip notes this. List view shows the full chip row.
+- On the search grid, each tile shows only the price-vs-market chip, computed against TCGplayer's shipping-inclusive cheapest listing — so it can read slightly worse than the list-view delta for the same card (the tooltip notes this). List view shows the full chip row.
 
 #### Which market price the chips use
 
 When a page shows listings across variants (Normal / Holofoil / Reverse Holofoil) or conditions (NM / LP / MP / HP / DM), each listing chips against its **own SKU's market price**, matched by condition and variant — a Reverse Holofoil listing compares against the Reverse Holofoil market, not the page's headline.
 
-Within a variant, each condition's market price is capped at the best condition above it (NM, then LP, MP, HP, Damaged). TCGplayer recalculates thin condition tiers days later than Near Mint, so a stale LP "market" can sit above the fresh NM one; without the cap, an LP listing could show an inflated below-market delta and a DEAL chip while costing more than the NM market. Both the delta chip and the Deal math use the capped value.
+Within a variant, each condition's market price is capped at the best condition above it (NM → LP → MP → HP → Damaged). TCGplayer recalculates thin condition tiers days after Near Mint, so a stale LP "market" can sit above the fresh NM one — uncapped, that could produce an inflated delta and a false DEAL badge. Both the delta chip and the Deal math use the capped value.
 
 If the per-SKU lookup is unavailable, the chip falls back to the page's headline market price, and only on listings whose condition matches the headline — mismatched listings get the shipping chip only rather than a misleading delta.
 
