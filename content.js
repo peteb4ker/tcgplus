@@ -520,10 +520,17 @@
   }
 
   // -- Grid-view product cards -------------------------------------------
-  // The search page in grid mode renders `.product-card__product` tiles
-  // without a `.listing-item`. Each tile shows one product with its cheapest
-  // listing price and a per-tile market price; there's no per-tile shipping
-  // info, so only a delta chip applies (no shipping, no Deal).
+  // The search page in grid mode and seller storefront pages render
+  // `.product-card__product` tiles without a `.listing-item`. Each tile
+  // shows one product with its cheapest listing price and a per-tile
+  // market price; there's no per-tile shipping info, so only a delta chip
+  // applies (no shipping, no Deal).
+
+  // The product page's recommendations carousel (2026 redesign) reuses the
+  // same tile markup; tiles inside it are never chipped (#117). Outer and
+  // inner container classes as probed live; content.css's
+  // hide-recommendations rule targets the outer one.
+  const PRODUCT_RECOMMENDATIONS_SELECTOR = '.product-details__recommendations, .product-recommendations';
 
   function extractSellerKeyFromCard(card) {
     const anchor = card.closest('a') || card.querySelector('a');
@@ -1176,16 +1183,17 @@
     document.querySelectorAll('.listing-item:not([data-tcgplus])').forEach((el) => {
       annotate(el);
     });
-    // Grid tiles are chip targets only on search pages. The 2026 redesign
-    // renders the product page's recommendations carousel with
+    // Grid tiles appear on the search grid and on seller storefront pages
+    // (/sellers/<name>/<key>), and both want a delta chip (#161). The 2026
+    // redesign renders the product page's recommendations carousel with
     // .product-card__product markup too — chipping those tiles against
     // their own tile market is unrequested intel on a page whose focus
-    // is the current product's listings (#117).
-    if (/\/search\//.test(location.pathname)) {
-      document.querySelectorAll('.product-card__product:not([data-tcgplus])').forEach((el) => {
-        annotateProductCard(el);
-      });
-    }
+    // is the current product's listings (#117) — so exclude that
+    // container rather than allowlisting page paths.
+    document.querySelectorAll('.product-card__product:not([data-tcgplus])').forEach((el) => {
+      if (el.closest(PRODUCT_RECOMMENDATIONS_SELECTOR)) return;
+      annotateProductCard(el);
+    });
     // Always process every .package-item, not just un-annotated ones.
     // TCGplayer's responsive cart layout strips our chip at narrow
     // breakpoints without removing the .package-item itself, so a row

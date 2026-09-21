@@ -51,6 +51,13 @@ const PAGES = [
     url: null,
     type: 'single-seller',
   },
+  {
+    // Also built at runtime from the discovered seller: the storefront
+    // lives at /sellers/<name>/<key> (#161).
+    name: 'seller-storefront',
+    url: null,
+    type: 'seller-storefront',
+  },
 ];
 
 // Each check: [label, selector, cmp] where cmp is '>=1' or '==0'.
@@ -93,6 +100,16 @@ const CHECKS = {
       '.shop-by-seller-message .tcgplus-loc, .shop-by-seller-banner .tcgplus-loc',
       '>=1',
     ],
+  ],
+  'seller-storefront': [
+    ['content script bootstrapped', 'html[data-tcgplus-ready="1"]', '>=1'],
+    ['product grid', '.product-grid', '>=1'],
+    ['grid items', '.product-grid__item', '>=1'],
+    ['product-card tiles', '.product-card__product', '>=1'],
+    ['tile market price', '.product-card__market-price--value', '>=1'],
+    ['tile price w/ shipping', '.inventory__price-with-shipping', '>=1'],
+    ['TCGPlus tile chips', '.product-card__product .tcgplus-price-chip', '>=1'],
+    ['no panel on seller storefront', '.tcgplus-panel', '==0'],
   ],
 };
 
@@ -148,18 +165,22 @@ async function runChecks(page, type) {
   });
   const page = ctx.pages()[0] || (await ctx.newPage());
 
-  let sellerKey = null;
+  /** @type {{ path: string, key: string } | null} */
+  let seller = null;
   let failures = 0;
 
   for (const spec of PAGES) {
     let url = spec.url;
-    if (spec.type === 'single-seller') {
-      if (!sellerKey) {
-        console.log(`\n## ${spec.name}: SKIPPED (no seller key discovered from product pages)`);
+    if (spec.type === 'single-seller' || spec.type === 'seller-storefront') {
+      if (!seller) {
+        console.log(`\n## ${spec.name}: SKIPPED (no seller discovered from product pages)`);
         failures++;
         continue;
       }
-      url = `https://www.tcgplayer.com/search/pokemon/product?productLineName=pokemon&view=grid&seller=${sellerKey}`;
+      url =
+        spec.type === 'single-seller'
+          ? `https://www.tcgplayer.com/search/pokemon/product?productLineName=pokemon&view=grid&seller=${seller.key}`
+          : `https://www.tcgplayer.com${seller.path}`;
     }
 
     console.log(`\n## ${spec.name}`);
@@ -183,11 +204,11 @@ async function runChecks(page, type) {
       console.log(`   ${mark}  ${r.label}  (${r.sel} ${r.cmp}, got ${r.count})`);
     }
 
-    if (spec.type === 'product' && !sellerKey) {
-      sellerKey = await page.evaluate(() => {
+    if (spec.type === 'product' && !seller) {
+      seller = await page.evaluate(() => {
         const a = document.querySelector('.listing-item a.seller-info__name');
-        const m = a && (a.getAttribute('href') || '').match(/\/sellers\/[^/]+\/([a-z0-9]+)/i);
-        return m ? m[1] : null;
+        const m = a && (a.getAttribute('href') || '').match(/(\/sellers\/[^/?#]+\/([a-z0-9]+))/i);
+        return m ? { path: m[1], key: m[2] } : null;
       });
     }
   }

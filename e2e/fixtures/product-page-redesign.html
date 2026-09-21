@@ -83,33 +83,37 @@
     </section>
 
     <!-- Redesign: recommendations carousel reuses product-card markup.
-         These tiles must NOT get chips on a product page. -->
-    <section class="product-recommendations__carousel">
-      <div class="search-result">
-        <a href="/product/999901/pokemon-reco-one">
-          <section class="product-card__product">
-            <span class="product-card__title">Reco One</span>
-            <div class="inventory">
-              <span class="inventory__price-with-shipping">$1.00</span>
-            </div>
-            <section class="product-card__market-price">
-              <span class="product-card__market-price--value">$2.00</span>
+         These tiles must NOT get chips on a product page. Container classes
+         are the real ones (.product-details__recommendations wrapping
+         .product-recommendations), which content.js excludes by (#161). -->
+    <section class="product-details__recommendations">
+      <div class="product-recommendations product-details__recommendations-container">
+        <div class="search-result">
+          <a href="/product/999901/pokemon-reco-one">
+            <section class="product-card__product">
+              <span class="product-card__title">Reco One</span>
+              <div class="inventory">
+                <span class="inventory__price-with-shipping">$1.00</span>
+              </div>
+              <section class="product-card__market-price">
+                <span class="product-card__market-price--value">$2.00</span>
+              </section>
             </section>
-          </section>
-        </a>
-      </div>
-      <div class="search-result">
-        <a href="/product/999902/pokemon-reco-two">
-          <section class="product-card__product">
-            <span class="product-card__title">Reco Two</span>
-            <div class="inventory">
-              <span class="inventory__price-with-shipping">$3.00</span>
-            </div>
-            <section class="product-card__market-price">
-              <span class="product-card__market-price--value">$4.00</span>
+          </a>
+        </div>
+        <div class="search-result">
+          <a href="/product/999902/pokemon-reco-two">
+            <section class="product-card__product">
+              <span class="product-card__title">Reco Two</span>
+              <div class="inventory">
+                <span class="inventory__price-with-shipping">$3.00</span>
+              </div>
+              <section class="product-card__market-price">
+                <span class="product-card__market-price--value">$4.00</span>
+              </section>
             </section>
-          </section>
-        </a>
+          </a>
+        </div>
       </div>
     </section>
   </body>

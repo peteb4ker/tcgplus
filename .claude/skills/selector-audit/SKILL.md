@@ -1,6 +1,6 @@
 ---
 name: selector-audit
-description: Audit TCGPlus's DOM selectors against the live tcgplayer.com site using Playwright with the extension loaded. Runs npm run audit:selectors across product, filtered-product, search-grid, and single-seller pages and reports per-selector PASS/FAIL. Use when the user reports wrong or missing chips/badges/panel, suspects a TCGplayer UI update, asks to validate pages or audit selectors, or before cutting a release.
+description: Audit TCGPlus's DOM selectors against the live tcgplayer.com site using Playwright with the extension loaded. Runs npm run audit:selectors across product, filtered-product, search-grid, single-seller, and seller-storefront pages and reports per-selector PASS/FAIL. Use when the user reports wrong or missing chips/badges/panel, suspects a TCGplayer UI update, asks to validate pages or audit selectors, or before cutting a release.
 ---
 
 # selector-audit
@@ -49,4 +49,4 @@ Where TCGplayer has shipped a rename, keep both generations in the inventory as 
 
 - **Cart and checkout pages are not audited.** They need the user's logged-in session and cart contents, which a fresh headless profile cannot have. After changing cart/checkout selectors, ask the user to verify on their real session and to paste DOM samples if something misses.
 - **On demand only, never CI.** The audit hits the live site: it is inherently flaky, rate-limited, and a courtesy to TCGplayer. Do not wire it into workflows.
-- The single-seller page URL is built at runtime from a seller key discovered on the first product page; if product pages fail to load, the single-seller audit is skipped and reported as a failure.
+- The single-seller and seller-storefront page URLs are built at runtime from a seller discovered on the first product page (its `/sellers/<name>/<key>` link); if product pages fail to load, both audits are skipped and reported as failures.

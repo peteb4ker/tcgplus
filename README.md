@@ -15,7 +15,7 @@ Install TCGPlus from the [Chrome Web Store](https://chromewebstore.google.com/de
 
 ## Features
 
-TCGPlus runs on product pages, search pages, and the cart and checkout pages.
+TCGPlus runs on product pages, search pages, seller storefront pages, and the cart and checkout pages.
 
 ### Vendor location badges
 
@@ -39,7 +39,7 @@ Each listing gets a row of chips that show price-vs-market, shipping cost, and w
 - **Price-vs-market chip**: how far the price is from the market price, e.g. `+$5.00 (+16.7%)`. Solid green below market. Above market shifts from yellow through orange to red, hitting full red at 10% over.
 - **Shipping chip**: replaces the plain "+ $X.XX Shipping" line. Green when shipping is included, yellow under $2, red at $2 or more (labelled "high shipping").
 - **Deal chip**: a purple "DEAL" badge appears when the listing's all-in cost would still beat the market price. The math factors in any "Free Shipping on Orders Over $X" promo on the listing, but only when your existing cart subtotal _with that same seller_ plus the listing's price clears the global free-shipping threshold (currently $5).
-- On the search grid, each tile shows only the price-vs-market chip, computed against TCGplayer's shipping-inclusive cheapest listing — so it can read slightly worse than the list-view delta for the same card (the tooltip notes this). List view shows the full chip row.
+- On the search grid and on seller storefront pages (`tcgplayer.com/sellers/…`), each tile shows only the price-vs-market chip, computed against TCGplayer's shipping-inclusive cheapest listing — so it can read slightly worse than the list-view delta for the same card (the tooltip notes this). List view shows the full chip row.
 
 #### Which market price the chips use
 
@@ -116,7 +116,7 @@ For local development or testing an unreleased build:
 2. In Chrome, open `chrome://extensions`.
 3. Turn on **Developer mode** (top right).
 4. Click **Load unpacked** and select this directory.
-5. Visit any product page (`https://www.tcgplayer.com/product/*`) or search page (`https://www.tcgplayer.com/search/*`).
+5. Visit any product page (`https://www.tcgplayer.com/product/*`), search page (`https://www.tcgplayer.com/search/*`), or seller storefront (`https://www.tcgplayer.com/sellers/*`).
 
 ## License
 

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Seller storefront fixture</title>
+    <!--
+      Replays the seller storefront page (/sellers/<name>/<key>) as probed
+      live in #161. The ancestor chain of each tile is the real one:
+      .product-listings > .product-grid > .product-grid__item > .product-card
+      > .product-card__content > a > section.product-card__product. There is
+      no .search-results / .search-result wrapper, no .listing-item, and the
+      tile links carry the seller in the path rather than a ?seller= param.
+    -->
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 24px;
+      }
+      .product-grid__item {
+        display: inline-block;
+        margin: 8px;
+        vertical-align: top;
+      }
+      .product-card__product {
+        border: 1px solid #ddd;
+        padding: 12px;
+        width: 200px;
+      }
+      .product-card__market-price--value {
+        color: #05772d;
+        font-weight: 600;
+      }
+      .inventory__price-with-shipping {
+        color: #05772d;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <button class="mp-header__content__cart-count" type="button" aria-label="Cart">
+        <svg class="svg-inline--fa fa-cart-shopping" width="16" height="16"><title>cart</title></svg>
+        <span class="tcg-badge mp-header__content__cart-count__chip">0</span>
+      </button>
+    </header>
+
+    <div class="app-container">
+      <div class="marketplace">
+        <section class="marketplace__content">
+          <div class="seller-routes">
+            <div class="seller">
+              <div class="seller__body">
+                <div class="seller__body-wrapper">
+                  <div class="seller-temp-body">
+                    <section class="body">
+                      <div class="container max-width-feat">
+                        <div class="product-listings">
+                          <div class="product-grid">
+                            <div class="product-grid__item" data-testid="grid-item--0">
+                              <div class="product-card">
+                                <div class="product-card__content">
+                                  <a href="/sellers/Test-Seller/aaaaaaaa/product/1/card-a">
+                                    <section class="product-card__product product-card__product-variant-a">
+                                      <section class="product-card__image"></section>
+                                      <h3 class="product-card__set-name">
+                                        <div class="product-card__set-name__variant">Test Set</div>
+                                      </h3>
+                                      <span class="product-card__title truncate">Card A</span>
+                                      <div class="inventory">
+                                        <div class="inventory__container">
+                                          <span class="inventory__listing-count inventory__listing-count-block"
+                                            ><span>1 listing</span> from</span
+                                          >
+                                          <span class="inventory__price"
+                                            ><span class="inventory__price-with-shipping">$8.00</span></span
+                                          >
+                                        </div>
+                                      </div>
+                                      <section class="product-card__market-price">
+                                        <section>
+                                          <span>Market Price:</span>
+                                          <span class="product-card__market-price--value">$10.00</span>
+                                        </section>
+                                      </section>
+                                    </section>
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="product-grid__item" data-testid="grid-item--1">
+                              <div class="product-card">
+                                <div class="product-card__content">
+                                  <a href="/sellers/Test-Seller/aaaaaaaa/product/2/card-b">
+                                    <section class="product-card__product product-card__product-variant-a">
+                                      <section class="product-card__image"></section>
+                                      <h3 class="product-card__set-name">
+                                        <div class="product-card__set-name__variant">Test Set</div>
+                                      </h3>
+                                      <span class="product-card__title truncate">Card B</span>
+                                      <div class="inventory">
+                                        <div class="inventory__container">
+                                          <span class="inventory__listing-count inventory__listing-count-block"
+                                            ><span>1 listing</span> from</span
+                                          >
+                                          <span class="inventory__price"
+                                            ><span class="inventory__price-with-shipping">$11.00</span></span
+                                          >
+                                        </div>
+                                      </div>
+                                      <section class="product-card__market-price">
+                                        <section>
+                                          <span>Market Price:</span>
+                                          <span class="product-card__market-price--value">$10.00</span>
+                                        </section>
+                                      </section>
+                                    </section>
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div class="product-grid__item" data-testid="grid-item--2">
+                              <div class="product-card">
+                                <div class="product-card__content">
+                                  <a href="/sellers/Test-Seller/aaaaaaaa/product/3/card-c">
+                                    <section class="product-card__product product-card__product-variant-a">
+                                      <section class="product-card__image"></section>
+                                      <h3 class="product-card__set-name">
+                                        <div class="product-card__set-name__variant">Test Set</div>
+                                      </h3>
+                                      <span class="product-card__title truncate">Card C</span>
+                                      <div class="inventory">
+                                        <div class="inventory__container">
+                                          <span class="inventory__listing-count inventory__listing-count-block"
+                                            ><span>1 listing</span> from</span
+                                          >
+                                          <span class="inventory__price"
+                                            ><span class="inventory__price-with-shipping">$15.00</span></span
+                                          >
+                                        </div>
+                                      </div>
+                                      <section class="product-card__market-price">
+                                        <section>
+                                          <span>Market Price:</span>
+                                          <span class="product-card__market-price--value">$10.00</span>
+                                        </section>
+                                      </section>
+                                    </section>
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>
