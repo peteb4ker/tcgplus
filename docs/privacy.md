@@ -13,7 +13,7 @@ The extension makes four kinds of network requests, all to TCGplayer's own serve
 1. **Vendor lookups.** When TCGPlus sees a listing it doesn't already have cached, it asks `seller-stores-backend.tcgplayer.com` for that vendor's public profile (city, state, country) so it can show the location badge. Sent without cookies.
 2. **Cart summary.** TCGPlus asks `mpgateway.tcgplayer.com` (`/v1/cart/<key>/summary`) for the contents of your TCGplayer cart so it can show the running subtotal next to the cart count and feed the Deal-chip math. This is the same endpoint TCGplayer's own pages use, and it is the only request that includes your TCGplayer session cookies, because the cart belongs to your session.
 3. **Product SKU catalogue.** For each product on the page, TCGPlus asks `mp-search-api.tcgplayer.com` (`/v2/product/<id>/details`) for the product's list of SKUs (condition, variant, language) so it can match each listing to the right SKU. Sent without cookies.
-4. **Per-SKU market prices.** TCGPlus asks `mpgateway.tcgplayer.com` (`/v1/pricepoints/marketprice/skus/search`) for the public market price of those SKUs, which feeds the Deal chip. Sent without cookies. If this lookup fails, TCGPlus falls back to the market price already shown on the page.
+4. **Per-SKU market prices.** TCGPlus asks `mpgateway.tcgplayer.com` (`/v1/pricepoints/marketprice/skus/search`) for the public market price of those SKUs, which feeds the price-vs-market and Deal chips. Sent without cookies. If this lookup fails, TCGPlus falls back to the market price already shown on the page.
 
 No request goes anywhere else.
 
