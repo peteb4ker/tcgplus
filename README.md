@@ -98,7 +98,7 @@ TCGPlus runs entirely in your browser. There is no TCGPlus server, no account, a
 - `mpgateway.tcgplayer.com/v1/cart/<key>/summary` for the cart subtotal and per-seller breakdown.
 - `mp-search-api.tcgplayer.com/v2/product/<id>/details` for the SKU catalogue of each product (variant + condition), and `mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search` for per-SKU market prices. These power the variant-aware delta chip on product, search-list, and cart pages.
 
-All four hosts are listed as host permissions in the manifest. The page's headline market price is read from the page itself as a fallback when per-SKU pricing isn't available. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
+Those three hosts are the extension's only host permissions in the manifest. Only the cart-summary call sends your TCGplayer session cookies (the cart belongs to your session); the vendor, SKU catalogue, and market-price calls are sent without cookies. The page's headline market price is read from the page itself as a fallback when per-SKU pricing isn't available. Settings are stored locally in `chrome.storage.local`. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
 
 ## Development
 
