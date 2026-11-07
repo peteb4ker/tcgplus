@@ -30,7 +30,7 @@ When you've filtered to a single seller, the location moves into the "You are sh
 
 ### Click-to-filter panel
 
-A floating panel summarizes the page by tier (Home / Nearby / Other US). Click a tier to filter the listings to just that group, click again to clear. Counts reflect only the active page. The chosen filter sticks across reloads.
+A floating panel summarizes the page by tier (Home / Nearby / Other US). Click a tier to filter the listings to just that group, click again to clear. The tiers are buttons, so you can also Tab to one and press Enter or Space. Counts reflect only the active page. The chosen filter sticks across reloads.
 
 ### Price, shipping, and Deal chips
 
@@ -38,7 +38,13 @@ Each listing gets a row of chips that show price-vs-market, shipping cost, and w
 
 - **Price-vs-market chip**: how far the price is from the market price, e.g. `+$5.00 (+16.7%)`. Solid green below market. Above market shifts from yellow through orange to red, hitting full red at 10% over.
 - **Shipping chip**: replaces the plain "+ $X.XX Shipping" line. Green when shipping is included, yellow under $2, red at $2 or more (labelled "high shipping").
-- **Deal chip**: a purple "DEAL" badge appears when the listing's all-in cost would still beat the market price. The math factors in any "Free Shipping on Orders Over $X" promo on the listing, but only when your existing cart subtotal _with that same seller_ plus the listing's price clears the global free-shipping threshold (currently $5).
+- **Deal chip**: a purple "DEAL" badge appears when the listing's all-in cost would still beat the market price. All-in means the listing price plus the shipping it would actually add to your order:
+  - **Seller already in your cart**: no extra shipping. TCGplayer charges one shipping fee per seller order, so a second item from the same seller ships in the same package. The chip updates live as your cart changes.
+  - **"Free Shipping on Orders Over $5" promo**: no shipping when the listing's price clears the $5 threshold. TCGplayer fixes this threshold; sellers don't set it.
+  - **Otherwise**: the listing's stated shipping.
+
+  TCGplayer bases the final fee on the largest item in the order, so adding sealed product to a cart of singles from the same seller can still cost a little more shipping than the chip assumes.
+
 - On the search grid and on seller storefront pages (`tcgplayer.com/sellers/…`), each tile shows only the price-vs-market chip, computed against TCGplayer's shipping-inclusive cheapest listing — so it can read slightly worse than the list-view delta for the same card (the tooltip notes this). List view shows the full chip row.
 
 #### Which market price the chips use
@@ -74,7 +80,7 @@ If TCGPlus can't read a row's price or quantity, it checks its own item total ag
 
 ### Cart subtotal in the header
 
-TCGPlus adds the cart's current subtotal next to the cart icon in TCGplayer's header, in the same green TCGplayer uses for prices. It shows even at `$0.00` and refreshes whenever the count badge changes. The Deal-chip math uses the same number.
+TCGPlus adds the cart's current subtotal next to the cart icon in TCGplayer's header, in the same green TCGplayer uses for prices. It appears once the cart has loaded and holds something (no placeholder `$0.00` before the cart loads or when it is empty), and refreshes whenever the count badge changes. The Deal-chip math uses the same number.
 
 ### Settings page
 
@@ -98,7 +104,7 @@ TCGPlus runs entirely in your browser. There is no TCGPlus server, no account, a
 - `mpgateway.tcgplayer.com/v1/cart/<key>/summary` for the cart subtotal and per-seller breakdown.
 - `mp-search-api.tcgplayer.com/v2/product/<id>/details` for the SKU catalogue of each product (variant + condition), and `mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search` for per-SKU market prices. These power the variant-aware delta chip on product, search-list, and cart pages.
 
-All four hosts are listed as host permissions in the manifest. The page's headline market price is read from the page itself as a fallback when per-SKU pricing isn't available. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
+Those three hosts are the extension's only host permissions in the manifest. Only the cart-summary call sends your TCGplayer session cookies (the cart belongs to your session); the vendor, SKU catalogue, and market-price calls are sent without cookies. The page's headline market price is read from the page itself as a fallback when per-SKU pricing isn't available. Settings are stored locally in `chrome.storage.local`. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
 
 ## Development
 

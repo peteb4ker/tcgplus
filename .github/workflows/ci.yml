@@ -32,14 +32,32 @@ jobs:
           assert m.get('manifest_version') == 3, f"expected manifest_version 3, got {m.get('manifest_version')}"
           for f in ['name', 'version', 'description']:
               assert m.get(f), f"manifest missing required field: {f}"
-          cs = m.get('content_scripts', [{}])[0]
-          for f in cs.get('js', []) + cs.get('css', []):
-              assert os.path.exists(f), f"content script file missing: {f}"
+          def must_exist(f, what):
+              assert f, f"manifest missing {what}"
+              assert os.path.isfile(f), f"{what} file missing: {f}"
+          for cs in m.get('content_scripts', []):
+              for f in cs.get('js', []) + cs.get('css', []):
+                  must_exist(f, 'content script')
+          must_exist(m.get('background', {}).get('service_worker'), 'background.service_worker')
+          must_exist(m.get('options_page'), 'options_page')
+          icons = m.get('icons', {})
+          assert icons, "manifest missing icons"
+          for size, f in icons.items():
+              must_exist(f, f"icons[{size}]")
+          action_icons = m.get('action', {}).get('default_icon', {})
+          assert action_icons, "manifest missing action.default_icon"
+          if isinstance(action_icons, str):
+              action_icons = {'default': action_icons}
+          for size, f in action_icons.items():
+              must_exist(f, f"action.default_icon[{size}]")
           print("manifest.json OK")
           PY
 
       - name: Check JS syntax
-        run: node --check content.js && node --check lib.js
+        run: |
+          for f in content.js lib.js storage.js background.js options/options.js; do
+            node --check "$f"
+          done
 
       - name: Check formatting (Prettier)
         run: npm run format:check

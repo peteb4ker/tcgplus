@@ -20,7 +20,7 @@ TCGPlus achieves this by **adding to and removing parts of the TCGplayer UI** to
 
 **No analytics. No servers. Ever.**
 
-The only network calls TCGPlus makes are to TCGplayer's own APIs (currently `seller-stores-backend.tcgplayer.com`, `mpgateway.tcgplayer.com`, and `mp-search-api.tcgplayer.com`). All state lives in the user's `localStorage`. Nothing is logged anywhere outside the user's browser.
+The only network calls TCGPlus makes are to TCGplayer's own APIs (currently `seller-stores-backend.tcgplayer.com`, `mpgateway.tcgplayer.com`, and `mp-search-api.tcgplayer.com`). All state lives in the extension's `chrome.storage.local` on the user's machine. Nothing is logged anywhere outside the user's browser.
 
 If a future feature genuinely needs server-side help (e.g. a community price database), it's a separate project, not a TCGPlus feature. Don't add Sentry, don't add a "report a bug" upload button, don't add a CDN-hosted config. Don't.
 
@@ -234,11 +234,12 @@ When you change `renderDealChipHtml` or `recomputeDealChips` in `content.js`, up
 - **`lib.js`**: pure helpers (parsing, classification, chip color/text). No DOM access, no fetches, no globals beyond function declarations. Loaded as a content script and `require()`'d from tests. Keep it dependency-free.
 - **`content.js`**: stateful orchestration (fetches, MutationObservers, panel rendering). Wraps an IIFE; relies on `lib.js`'s top-level functions being in scope. **Don't duplicate helpers here.** If you need a new helper, add it to `lib.js` and write a test.
 - **`content.css`**: all styling. Use `tcgplus-` prefixed classes only. Don't style raw TCGplayer classes — that breaks when they reorganize.
-- **`manifest.json`**: MV3 manifest. `lib.js` must come before `content.js` in `content_scripts.js`.
+- **`storage.js`**: shared settings layer over `chrome.storage.local` (`STORAGE_KEYS`, load/save/remove helpers, one-time migration from page `localStorage`). Loaded as a content script before `content.js` and as a plain script by the options page.
+- **`background.js`**: MV3 service worker. Opens the options page from the toolbar action icon and from the panel gear button (content scripts can't call `chrome.runtime.openOptionsPage`, so they message the worker).
+- **`options/`**: the settings page (`index.html`, `options.js`, `options.css`), referenced from `manifest.json` `options_page`. Settings UI lives here, not in the floating panel; it reads and writes through `storage.js`.
+- **`manifest.json`**: MV3 manifest. `lib.js` and `storage.js` must come before `content.js` in `content_scripts.js`.
 - **`tests/`**: Node `--test` unit tests for `lib.js` only. Pure-helper coverage. Add a test for any new helper.
 - **`e2e/`**: Playwright tests that load the unpacked extension into Chromium and exercise the content script + options page against mocked TCGplayer routes. Add a test when you change panel rendering, chip placement, cart fetching, or any cross-cutting behavior.
-
-When the **Options page** lands (planned future work), it'll live in its own HTML/JS file referenced from `manifest.json` `options_page`. Settings UI will move out of the floating panel and into that page.
 
 ## TCGplayer DOM survival rules
 
@@ -270,7 +271,7 @@ Critical paths:
 
 The `.github/workflows/ci.yml` workflow runs:
 
-- **Validate**: manifest schema sanity, JS syntax, Prettier, ESLint, `tsc --checkJs`.
+- **Validate**: manifest schema sanity (including that every manifest-referenced file exists: content scripts, `background.service_worker`, `options_page`, `icons`, `action.default_icon`), `node --check` on every runtime JS file, Prettier, ESLint, `tsc --checkJs`.
 - **Test**: `npm test` (Node `--test`) over `lib.js` pure helpers.
 - **E2E**: `npm run test:e2e` (Playwright) loads the unpacked extension into headless Chromium with mocked TCGplayer routes and asserts on the panel, chips, cart subtotal, filter, and OOS hide behavior.
 
@@ -287,6 +288,6 @@ Two follow-ups, every time:
 
 ## Other things to keep in mind
 
-- All persisted state lives in `localStorage` under the `tcgplus.*` namespace. When changing the schema (renaming/removing keys), include a migration in the load path; don't break users with old saved settings.
+- All persisted state lives in `chrome.storage.local` under the `tcgplus.*` namespace, with keys listed in `STORAGE_KEYS` in `storage.js`. (Older versions used the page's `localStorage`; `migrateFromLocalStorageIfNeeded` copies those values across once.) When changing the schema (renaming/removing keys), include a migration in the load path; don't break users with old saved settings.
 - The extension is plain MV3 with no production build step. The published artifact is just the source files.
 - Visual identity stays close to TCGplayer's existing palette so the extension feels native (greens for prices, the same kind of pill chips), with our own tcgplus-prefixed classes carrying the styling.

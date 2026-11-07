@@ -289,9 +289,28 @@ html.tcgplus-filter-other .listing-item:not([data-tcgplus-tier='other']) {
   font-weight: 700;
 }
 .tcgplus-panel-row {
+  /* Rows are <button>s (keyboard-accessible filter); strip the UA button
+     chrome so they render like the plain block rows they replaced. The
+     tier rules below still set colour and weight. */
+  appearance: none;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-transform: none;
   line-height: 1.7;
   padding: 1px 4px;
   border-radius: 3px;
+}
+.tcgplus-panel-row:focus-visible {
+  outline: 2px solid #0a66c2;
+  outline-offset: 1px;
 }
 .tcgplus-panel-row.tcgplus-row-home {
   color: #1e7e1e;
