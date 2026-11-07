@@ -707,6 +707,34 @@ function describeOosBanner(oosCount, hideOOS) {
   };
 }
 
+/**
+ * Sanitise a stored nearby-states value: keep only known state codes, drop
+ * the home state. Returns null when `raw` isn't an array so callers can
+ * leave their current set untouched.
+ *
+ * @param {unknown} raw  value read from chrome.storage
+ * @param {string} homeState
+ * @returns {Set<string> | null}
+ */
+function sanitizeNearbyStates(raw, homeState) {
+  if (!Array.isArray(raw)) return null;
+  return new Set(raw.filter((c) => typeof c === 'string' && STATE_CODES.has(c) && c !== homeState));
+}
+
+/**
+ * Normalise a stored activeFilter value. Migrates pre-rename values
+ * ('ca' -> 'home', 'west' -> 'nearby'); anything not in VALID_TIERS is null.
+ *
+ * @param {unknown} raw  value read from chrome.storage
+ * @returns {'home' | 'nearby' | 'other' | null}
+ */
+function normalizeActiveFilter(raw) {
+  let v = raw;
+  if (v === 'ca') v = 'home';
+  else if (v === 'west') v = 'nearby';
+  return typeof v === 'string' && VALID_TIERS.has(v) ? /** @type {'home' | 'nearby' | 'other'} */ (v) : null;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     STATES,
@@ -740,5 +768,7 @@ if (typeof module !== 'undefined' && module.exports) {
     createCoalescedRunner,
     cacheUntilNull,
     describeOosBanner,
+    sanitizeNearbyStates,
+    normalizeActiveFilter,
   };
 }

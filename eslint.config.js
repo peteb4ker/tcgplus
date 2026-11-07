@@ -90,9 +90,12 @@ module.exports = [
         createCoalescedRunner: 'readonly',
         cacheUntilNull: 'readonly',
         describeOosBanner: 'readonly',
+        sanitizeNearbyStates: 'readonly',
+        normalizeActiveFilter: 'readonly',
         // Provided by storage.js loaded between lib.js and content.js.
         STORAGE_KEYS: 'readonly',
         ALL_STORAGE_KEYS: 'readonly',
+        HIDE_TOGGLES: 'readonly',
         loadAllSettings: 'readonly',
         saveSetting: 'readonly',
         removeSetting: 'readonly',

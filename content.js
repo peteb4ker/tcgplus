@@ -16,15 +16,7 @@
   let forceNearMint = false;
   let hideOOS = false;
 
-  const HIDE_TOGGLES = [
-    { id: 'breakdown', storageKey: STORAGE_KEYS.hideBreakdown, bodyClass: 'tcgplus-hide-breakdown' },
-    {
-      id: 'recommendations',
-      storageKey: STORAGE_KEYS.hideRecommendations,
-      bodyClass: 'tcgplus-hide-recommendations',
-    },
-    { id: 'footer', storageKey: STORAGE_KEYS.hideFooter, bodyClass: 'tcgplus-hide-footer' },
-  ];
+  // HIDE_TOGGLES (id, storageKey, bodyClass) comes from storage.js.
   /** @type {Record<string, boolean>} */
   const hideState = { breakdown: false, recommendations: false, footer: false };
 
@@ -47,14 +39,9 @@
   function applySettings(stored) {
     const h = /** @type {string | undefined} */ (stored[STORAGE_KEYS.homeState]);
     if (h && STATE_CODES.has(h)) homeState = h;
-    const n = stored[STORAGE_KEYS.nearbyStates];
-    if (Array.isArray(n)) {
-      nearbyStates = new Set(n.filter((c) => typeof c === 'string' && STATE_CODES.has(c) && c !== homeState));
-    }
-    let f = /** @type {string | undefined} */ (stored[STORAGE_KEYS.activeFilter]);
-    if (f === 'ca') f = 'home';
-    else if (f === 'west') f = 'nearby';
-    activeFilter = f && VALID_TIERS.has(f) ? f : null;
+    const n = sanitizeNearbyStates(stored[STORAGE_KEYS.nearbyStates], homeState);
+    if (n) nearbyStates = n;
+    activeFilter = normalizeActiveFilter(stored[STORAGE_KEYS.activeFilter]);
     forceNearMint = stored[STORAGE_KEYS.forceNearMint] === true;
     hideOOS = stored[STORAGE_KEYS.hideOOS] === true;
     for (const t of HIDE_TOGGLES) hideState[t.id] = stored[t.storageKey] === true;
@@ -1319,17 +1306,14 @@
       }
     }
     if (changes[STORAGE_KEYS.nearbyStates]) {
-      const v = changes[STORAGE_KEYS.nearbyStates].newValue;
-      if (Array.isArray(v)) {
-        nearbyStates = new Set(v.filter((c) => typeof c === 'string' && STATE_CODES.has(c) && c !== homeState));
+      const next = sanitizeNearbyStates(changes[STORAGE_KEYS.nearbyStates].newValue, homeState);
+      if (next) {
+        nearbyStates = next;
         needsReclassify = true;
       }
     }
     if (changes[STORAGE_KEYS.activeFilter]) {
-      let v = changes[STORAGE_KEYS.activeFilter].newValue;
-      if (v === 'ca') v = 'home';
-      else if (v === 'west') v = 'nearby';
-      activeFilter = typeof v === 'string' && VALID_TIERS.has(v) ? v : null;
+      activeFilter = normalizeActiveFilter(changes[STORAGE_KEYS.activeFilter].newValue);
       applyFilter();
       renderPanel();
     }

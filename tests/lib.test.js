@@ -764,3 +764,34 @@ test('describeOosBanner floors fractional counts', () => {
   // into a future caller) by flooring to a whole tile.
   assert.equal(lib.describeOosBanner(2.7, false).text, '2 tiles with no listings matching your filters');
 });
+
+test('sanitizeNearbyStates returns null for non-array input', () => {
+  assert.equal(lib.sanitizeNearbyStates(undefined, 'CA'), null);
+  assert.equal(lib.sanitizeNearbyStates(null, 'CA'), null);
+  assert.equal(lib.sanitizeNearbyStates('OR', 'CA'), null);
+  assert.equal(lib.sanitizeNearbyStates({ 0: 'OR' }, 'CA'), null);
+});
+
+test('sanitizeNearbyStates drops non-strings, unknown codes, and the home state', () => {
+  const out = lib.sanitizeNearbyStates(['OR', 42, null, 'XX', 'or', 'CA', 'WA', 'OR'], 'CA');
+  assert.ok(out instanceof Set);
+  assert.deepEqual([...out], ['OR', 'WA']);
+  assert.deepEqual([...lib.sanitizeNearbyStates([], 'CA')], []);
+});
+
+test('normalizeActiveFilter migrates legacy values', () => {
+  assert.equal(lib.normalizeActiveFilter('ca'), 'home');
+  assert.equal(lib.normalizeActiveFilter('west'), 'nearby');
+});
+
+test('normalizeActiveFilter passes valid tiers and nulls everything else', () => {
+  assert.equal(lib.normalizeActiveFilter('home'), 'home');
+  assert.equal(lib.normalizeActiveFilter('nearby'), 'nearby');
+  assert.equal(lib.normalizeActiveFilter('other'), 'other');
+  assert.equal(lib.normalizeActiveFilter('intl'), null);
+  assert.equal(lib.normalizeActiveFilter('HOME'), null);
+  assert.equal(lib.normalizeActiveFilter(''), null);
+  assert.equal(lib.normalizeActiveFilter(undefined), null);
+  assert.equal(lib.normalizeActiveFilter(null), null);
+  assert.equal(lib.normalizeActiveFilter(1), null);
+});

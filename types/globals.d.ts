@@ -91,6 +91,8 @@ type OosBannerDescription = {
   nextHide: boolean;
 };
 declare function describeOosBanner(oosCount: number, hideOOS: boolean): OosBannerDescription | null;
+declare function sanitizeNearbyStates(raw: unknown, homeState: string): Set<string> | null;
+declare function normalizeActiveFilter(raw: unknown): 'home' | 'nearby' | 'other' | null;
 
 // storage.js — chrome.storage.local helpers shared by content.js and the options page.
 
@@ -108,6 +110,7 @@ type StorageKeyMap = {
 
 declare const STORAGE_KEYS: StorageKeyMap;
 declare const ALL_STORAGE_KEYS: ReadonlyArray<string>;
+declare const HIDE_TOGGLES: ReadonlyArray<{ id: string; storageKey: string; bodyClass: string }>;
 
 declare function loadAllSettings(): Promise<Record<string, unknown>>;
 declare function saveSetting(key: string, value: unknown): Promise<void>;

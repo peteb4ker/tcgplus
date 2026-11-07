@@ -66,22 +66,14 @@
   if (typeof storedHome === 'string' && STATE_CODES.has(storedHome)) {
     homeState = storedHome;
   }
-  const storedNearby = stored[STORAGE_KEYS.nearbyStates];
-  if (Array.isArray(storedNearby)) {
-    nearbyStates = new Set(storedNearby.filter((c) => typeof c === 'string' && STATE_CODES.has(c) && c !== homeState));
-  }
+  const storedNearby = sanitizeNearbyStates(stored[STORAGE_KEYS.nearbyStates], homeState);
+  if (storedNearby) nearbyStates = storedNearby;
 
   /** @type {Array<{ id: string; el: HTMLInputElement; key: string }>} */
   const hideToggleEls = Array.from(document.querySelectorAll('[data-toggle-id]')).map((el) => {
     const input = /** @type {HTMLInputElement} */ (el);
     const id = input.dataset.toggleId || '';
-    /** @type {Record<string, string>} */
-    const keyByToggle = {
-      breakdown: STORAGE_KEYS.hideBreakdown,
-      recommendations: STORAGE_KEYS.hideRecommendations,
-      footer: STORAGE_KEYS.hideFooter,
-    };
-    const key = keyByToggle[id] || '';
+    const key = HIDE_TOGGLES.find((t) => t.id === id)?.storageKey || '';
     input.checked = stored[key] === true;
     return { id, el: input, key };
   });
@@ -160,9 +152,8 @@
       }
     }
     if (changes[STORAGE_KEYS.nearbyStates]) {
-      const v = changes[STORAGE_KEYS.nearbyStates].newValue;
-      if (Array.isArray(v)) {
-        const next = new Set(v.filter((c) => typeof c === 'string' && STATE_CODES.has(c) && c !== homeState));
+      const next = sanitizeNearbyStates(changes[STORAGE_KEYS.nearbyStates].newValue, homeState);
+      if (next) {
         const same = next.size === nearbyStates.size && [...next].every((c) => nearbyStates.has(c));
         if (!same) {
           nearbyStates = next;
