@@ -1,9 +1,12 @@
 (async () => {
   'use strict';
 
+  // `mpfev` is TCGplayer's frontend-version cache-buster; every endpoint
+  // accepts any recent value, so keep one shared copy.
+  const MPFEV = '5199';
   const SELLER_API = 'https://seller-stores-backend.tcgplayer.com/sm/seller/';
-  const PRODUCT_DETAILS_API = (id) => `https://mp-search-api.tcgplayer.com/v2/product/${id}/details?mpfev=5199`;
-  const SKU_MARKET_PRICE_API = 'https://mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search?mpfev=5199';
+  const PRODUCT_DETAILS_API = (id) => `https://mp-search-api.tcgplayer.com/v2/product/${id}/details?mpfev=${MPFEV}`;
+  const SKU_MARKET_PRICE_API = `https://mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search?mpfev=${MPFEV}`;
 
   // -- Settings state -----------------------------------------------------
   // Defaults; overridden in `loadSettings()` from chrome.storage.local.
@@ -13,15 +16,7 @@
   let forceNearMint = false;
   let hideOOS = false;
 
-  const HIDE_TOGGLES = [
-    { id: 'breakdown', storageKey: STORAGE_KEYS.hideBreakdown, bodyClass: 'tcgplus-hide-breakdown' },
-    {
-      id: 'recommendations',
-      storageKey: STORAGE_KEYS.hideRecommendations,
-      bodyClass: 'tcgplus-hide-recommendations',
-    },
-    { id: 'footer', storageKey: STORAGE_KEYS.hideFooter, bodyClass: 'tcgplus-hide-footer' },
-  ];
+  // HIDE_TOGGLES (id, storageKey, bodyClass) comes from storage.js.
   /** @type {Record<string, boolean>} */
   const hideState = { breakdown: false, recommendations: false, footer: false };
 
@@ -44,14 +39,9 @@
   function applySettings(stored) {
     const h = /** @type {string | undefined} */ (stored[STORAGE_KEYS.homeState]);
     if (h && STATE_CODES.has(h)) homeState = h;
-    const n = stored[STORAGE_KEYS.nearbyStates];
-    if (Array.isArray(n)) {
-      nearbyStates = new Set(n.filter((c) => typeof c === 'string' && STATE_CODES.has(c) && c !== homeState));
-    }
-    let f = /** @type {string | undefined} */ (stored[STORAGE_KEYS.activeFilter]);
-    if (f === 'ca') f = 'home';
-    else if (f === 'west') f = 'nearby';
-    activeFilter = f && VALID_TIERS.has(f) ? f : null;
+    const n = sanitizeNearbyStates(stored[STORAGE_KEYS.nearbyStates], homeState);
+    if (n) nearbyStates = n;
+    activeFilter = normalizeActiveFilter(stored[STORAGE_KEYS.activeFilter]);
     forceNearMint = stored[STORAGE_KEYS.forceNearMint] === true;
     hideOOS = stored[STORAGE_KEYS.hideOOS] === true;
     for (const t of HIDE_TOGGLES) hideState[t.id] = stored[t.storageKey] === true;
@@ -61,7 +51,7 @@
   /** @type {Map<string, number>} */
   const cartSellerSubtotal = new Map();
   let cartSubtotal = 0;
-  const CART_SUMMARY_URL = (key) => `https://mpgateway.tcgplayer.com/v1/cart/${key}/summary?mpfev=5106`;
+  const CART_SUMMARY_URL = (key) => `https://mpgateway.tcgplayer.com/v1/cart/${key}/summary?mpfev=${MPFEV}`;
 
   // -- Seller cache -------------------------------------------------------
   // Null results (network blip, non-OK status) are evicted so the next
@@ -178,6 +168,12 @@
     return m ? m[1] : null;
   }
 
+  // True once a cart summary has loaded successfully. Until then the
+  // header badge stays hidden rather than showing a placeholder "$0.00".
+  // A later failed fetch leaves it as-is (last known subtotal stands, same
+  // as cartSellerSubtotal); losing the cart cookie resets it.
+  let cartLoaded = false;
+
   // Coalesced: a refresh requested while a fetch is in flight queues
   // exactly one follow-up fetch after the current one settles, so the
   // subtotal always reflects a response requested *after* the last cart
@@ -187,6 +183,7 @@
     const key = getCartKey();
     if (!key) {
       cartSubtotal = 0;
+      cartLoaded = false;
       cartSellerSubtotal.clear();
       renderCartBadge();
       return;
@@ -208,6 +205,7 @@
         } else {
           cartSubtotal = 0;
         }
+        cartLoaded = true;
         clearDegraded('cart');
       } else {
         markDegraded('cart', "Couldn't load your cart. The Deal chip will fall back to ignoring cart context.");
@@ -223,6 +221,13 @@
     const countEl = document.querySelector('.mp-header__content__cart-count');
     if (!countEl) return;
     let label = countEl.querySelector('.tcgplus-cart-subtotal');
+    // Only show a subtotal we actually fetched, and only for a non-empty
+    // cart: before the first summary resolves, with no cart cookie, or with
+    // an empty cart, a "$0.00" badge is noise.
+    if (!cartLoaded || !(cartSubtotal > 0)) {
+      if (label) label.remove();
+      return;
+    }
     if (!label) {
       label = document.createElement('span');
       label.className = 'tcgplus-cart-subtotal';
@@ -333,8 +338,15 @@
   function findListingPriceEl(item) {
     for (const sel of LISTING_PRICE_SELECTORS) {
       const el = item.querySelector(sel);
-      if (el && parsePrice(el.textContent)) return el;
+      if (el && parsePrice(el.textContent)) {
+        delete item.dataset.tcgplusPriceMissing;
+        return el;
+      }
     }
+    // Flag the listing itself so scan() can derive the warning from what's
+    // on the page now: it clears once no flagged listing remains (SPA nav
+    // to another product, or the price hydrating late on a backfill pass).
+    item.dataset.tcgplusPriceMissing = '1';
     if (!listingPriceWarned) {
       console.warn('[TCG+] could not find listing price element; share this DOM:', item.outerHTML.slice(0, 1500));
       listingPriceWarned = true;
@@ -479,13 +491,15 @@
     const sellerKey = item.dataset.tcgplusSellerKey || '';
     if (!price || !market) return '';
     const sellerCart = sellerKey ? cartSellerSubtotal.get(sellerKey) || 0 : 0;
-    const promoQualifies = promoFree && sellerCart + price >= FREE_SHIP_THRESHOLD;
-    const effectiveShipping = promoQualifies ? 0 : shipping;
-    const total = price + effectiveShipping;
+    const eff = effectiveDealShipping({ price, shipping, promoFree, sellerCart });
+    const total = price + eff.shipping;
     if (total >= market) return '';
-    const note = promoQualifies
-      ? `Total $${total.toFixed(2)} (free-shipping promo applies: $${sellerCart.toFixed(2)} already with this seller + $${price.toFixed(2)} clears the $${FREE_SHIP_THRESHOLD.toFixed(2)} threshold)`
-      : `Total $${total.toFixed(2)} is below market $${market.toFixed(2)}`;
+    let note = `Total $${total.toFixed(2)} is below market $${market.toFixed(2)}`;
+    if (eff.reason === 'seller-in-cart' && shipping > 0) {
+      note = `Total $${total.toFixed(2)} with no extra shipping: you already have $${sellerCart.toFixed(2)} from this seller in your cart, and TCGplayer charges one shipping fee per seller`;
+    } else if (eff.reason === 'promo') {
+      note = `Total $${total.toFixed(2)} (free-shipping promo applies: $${price.toFixed(2)} clears the $${FREE_SHIP_THRESHOLD.toFixed(2)} threshold)`;
+    }
     return `<span class="tcgplus-price-chip tcgplus-deal-chip" title="${note}">Deal</span>`;
   }
 
@@ -629,11 +643,40 @@
     return item.querySelector('[data-testid="txtItemPrice"], .item-sales-info .price');
   }
 
+  /**
+   * Stash a cart row's unit price and quantity in its dataset (compare
+   * before set). The checkout verdict aggregates from these.
+   *
+   * @param {HTMLElement} item
+   */
+  function refreshCartRowPriceQty(item) {
+    const priceEl = findCartPriceEl(item);
+    const price = priceEl ? parsePrice(priceEl.textContent) : null;
+    if (!price) return;
+    const qtySelect = /** @type {HTMLSelectElement | null} */ (
+      item.querySelector('select[data-testid="mp-select__UpdateProductQuantity"]')
+    );
+    const unit = String(price);
+    const qty = String(parseQuantityValue(qtySelect ? qtySelect.value : null));
+    if (item.dataset.tcgplusUnitPrice !== unit) item.dataset.tcgplusUnitPrice = unit;
+    if (item.dataset.tcgplusQty !== qty) item.dataset.tcgplusQty = qty;
+  }
+
   async function annotateCartItem(item) {
     // pending = a fetch is already in flight for this row; don't double-up.
     if (item.dataset.tcgplus === 'pending') return;
-    // Chip already present and intact — no work needed.
-    if (item.querySelector('.tcgplus-price-chips--cart')) return;
+    // Settled rows — chip intact, or a row that legitimately has no chip
+    // (no market data, unknown condition, unreadable price) — only get
+    // their cheap price/qty datasets refreshed so the verdict tracks a
+    // quantity change. Re-running the whole annotation for chipless rows
+    // on every scan was wasted work.
+    if (
+      item.dataset.tcgplus === 'done' &&
+      (item.dataset.tcgplusChips !== '1' || item.querySelector('.tcgplus-price-chips--cart'))
+    ) {
+      refreshCartRowPriceQty(item);
+      return;
+    }
 
     // From here on we're either annotating a fresh row, or RE-annotating
     // a row whose chip TCGplayer destroyed. TCGplayer's responsive cart
@@ -650,13 +693,11 @@
     const productId = findCartProductId(item);
     const conditionText = findCartConditionText(item);
     const priceEl = findCartPriceEl(item);
-    if (!priceEl) {
-      item.dataset.tcgplus = 'done';
-      return;
-    }
-    const price = parsePrice(priceEl.textContent);
-    if (!price) {
-      item.dataset.tcgplus = 'done';
+    const price = priceEl ? parsePrice(priceEl.textContent) : null;
+    if (!priceEl || !price) {
+      // Not hydrated yet (or selector drift): stay unsettled so a later
+      // scan picks the row up. Cheap — no fetch happens before this.
+      delete item.dataset.tcgplus;
       return;
     }
     // Stash unit price + quantity as soon as they're known, market or
@@ -672,11 +713,9 @@
     // #149 coverage check then (correctly) caught as a mismatch against
     // the cart's own total — but a wrong default was the actual bug,
     // not a coverage gap.
-    const qtySelect = item.querySelector('select[data-testid="mp-select__UpdateProductQuantity"]');
-    item.dataset.tcgplusUnitPrice = String(price);
-    item.dataset.tcgplusQty = String(parseQuantityValue(qtySelect ? qtySelect.value : null));
+    refreshCartRowPriceQty(item);
     if (!productId || !conditionText) {
-      item.dataset.tcgplus = 'done';
+      delete item.dataset.tcgplus;
       renderCheckoutVerdict();
       return;
     }
@@ -690,6 +729,13 @@
       return;
     }
     const pricing = await fetchProductSkuPricing(productId);
+    if (!pricing) {
+      // Fetch failure (cache already evicted it): leave the row unsettled
+      // so the next scan retries, same contract as annotate().
+      delete item.dataset.tcgplus;
+      renderCheckoutVerdict();
+      return;
+    }
     item.dataset.tcgplus = 'done';
     const market = pricing ? pricing.get(skuLookupKey(condition, variant)) : undefined;
     if (!Number.isFinite(market)) {
@@ -755,6 +801,7 @@
     if (!banner.querySelector('.tcgplus-loc')) {
       const badge = document.createElement('span');
       badge.className = `tcgplus-loc tcgplus-${tier}`;
+      badge.dataset.tcgplusState = stateCode;
       badge.style.marginLeft = '8px';
       badge.textContent = text;
       // Anchor after the store-name element of whichever generation is
@@ -802,7 +849,9 @@
     if (activeFilter) root.classList.add(`tcgplus-filter-${activeFilter}`);
     if (panel) {
       panel.querySelectorAll('.tcgplus-panel-row').forEach((r) => {
-        r.classList.toggle('tcgplus-panel-row-active', r.dataset.tier === activeFilter);
+        const pressed = r.dataset.tier === activeFilter;
+        r.classList.toggle('tcgplus-panel-row-active', pressed);
+        r.setAttribute('aria-pressed', String(pressed));
       });
     }
   }
@@ -822,6 +871,15 @@
         badge.classList.remove('tcgplus-home', 'tcgplus-nearby', 'tcgplus-other', 'tcgplus-intl');
         badge.classList.add(`tcgplus-${tier}`);
       }
+    });
+    // The single-seller banner badge carries its own state code; recolour
+    // it too so it agrees with the listings after a settings change.
+    document.querySelectorAll(`:is(${SELLER_BANNER_SELECTOR}) .tcgplus-loc[data-tcgplus-state]`).forEach((rawEl) => {
+      const badge = /** @type {HTMLElement} */ (rawEl);
+      const tier = classifyState(badge.dataset.tcgplusState || '', homeState, nearbyStates);
+      if (badge.classList.contains(`tcgplus-${tier}`)) return;
+      badge.classList.remove('tcgplus-home', 'tcgplus-nearby', 'tcgplus-other', 'tcgplus-intl');
+      badge.classList.add(`tcgplus-${tier}`);
     });
     renderPanel();
   }
@@ -928,10 +986,16 @@
       .map((tier) => {
         const count = counts[tier];
         const isActive = activeFilter === tier;
-        const disabled = count === 0 && !isActive ? ' tcgplus-panel-row-disabled' : '';
+        const isDisabled = count === 0 && !isActive;
+        const disabled = isDisabled ? ' tcgplus-panel-row-disabled' : '';
         const active = isActive ? ' tcgplus-panel-row-active' : '';
         const label = tierLabel(tier, homeState, STATE_NAMES);
-        return `<div class="tcgplus-panel-row tcgplus-row-${tier}${disabled}${active}" data-tier="${tier}">${label}: <b>${count}</b></div>`;
+        // Real <button>s so the filter is reachable by Tab and toggles on
+        // Enter/Space. Attributes are written exactly as innerHTML
+        // serialises them (boolean `disabled` → `disabled=""`) so the
+        // compare-before-set below stays stable across scans.
+        const disabledAttr = isDisabled ? ' disabled=""' : '';
+        return `<button type="button" class="tcgplus-panel-row tcgplus-row-${tier}${disabled}${active}" data-tier="${tier}" aria-pressed="${isActive}"${disabledAttr}>${label}: <b>${count}</b></button>`;
       })
       .join('');
     const gear = `<button type="button" class="tcgplus-settings-toggle" aria-label="Open TCGPlus settings" title="Open TCGPlus settings">⚙</button>`;
@@ -1106,6 +1170,13 @@
 
   function renderCheckoutVerdict() {
     const rows = document.querySelectorAll('.package-item');
+    // No cart rows → computeCartVerdict would return null for every
+    // anchor anyway. Skip the document-wide Order Summary text scan that
+    // would otherwise run on every scan of every non-cart page.
+    if (!rows.length) {
+      document.querySelectorAll('.tcgplus-checkout-verdict').forEach((el) => el.remove());
+      return;
+    }
     /** @type {Array<{ price: number, qty: number, market: number | null }>} */
     const items = [];
     rows.forEach((rawEl) => {
@@ -1205,6 +1276,13 @@
     });
     enhanceShopBySellerBanner();
     backfillPriceChips();
+    if (!document.querySelector('.listing-item[data-tcgplus-price-missing]')) clearDegraded('listing-price');
+    // SPA route changes don't reload the content script, so re-apply the
+    // Always Near Mint rewrite whenever the URL has moved since last scan.
+    if (location.href !== lastScanHref) {
+      lastScanHref = location.href;
+      enforceNearMint();
+    }
     watchCartCount();
     renderCartBadge();
     // Re-render so the panel disappears on SPA navigation away from a
@@ -1215,6 +1293,7 @@
     renderCheckoutVerdict();
   }
 
+  let lastScanHref = location.href;
   let scanTimer = null;
   const observer = new MutationObserver((mutations) => {
     if (scanTimer) return;
@@ -1252,17 +1331,14 @@
       }
     }
     if (changes[STORAGE_KEYS.nearbyStates]) {
-      const v = changes[STORAGE_KEYS.nearbyStates].newValue;
-      if (Array.isArray(v)) {
-        nearbyStates = new Set(v.filter((c) => typeof c === 'string' && STATE_CODES.has(c) && c !== homeState));
+      const next = sanitizeNearbyStates(changes[STORAGE_KEYS.nearbyStates].newValue, homeState);
+      if (next) {
+        nearbyStates = next;
         needsReclassify = true;
       }
     }
     if (changes[STORAGE_KEYS.activeFilter]) {
-      let v = changes[STORAGE_KEYS.activeFilter].newValue;
-      if (v === 'ca') v = 'home';
-      else if (v === 'west') v = 'nearby';
-      activeFilter = typeof v === 'string' && VALID_TIERS.has(v) ? v : null;
+      activeFilter = normalizeActiveFilter(changes[STORAGE_KEYS.activeFilter].newValue);
       applyFilter();
       renderPanel();
     }

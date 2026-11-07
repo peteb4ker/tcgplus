@@ -52,4 +52,18 @@ test.describe('Single-seller mode', () => {
     expect(chips).toContain('-$2.00 (-20.0%)');
     expect(chips).toContain('+$1.00 (+10.0%)');
   });
+
+  test('banner badge recolours when the home state changes', async () => {
+    await page.goto('https://www.tcgplayer.com/search/pokemon/test?seller=aaaaaaaa');
+    const badge = page.locator('.shop-by-seller-message .tcgplus-loc');
+    // Seller is in CA, the default home state.
+    await expect(badge).toHaveClass(/\btcgplus-home\b/);
+
+    let [sw] = ctx.serviceWorkers();
+    if (!sw) sw = await ctx.waitForEvent('serviceworker');
+    await sw.evaluate(() => chrome.storage.local.set({ 'tcgplus.homeState': 'TX' }));
+    // CA isn't in the default nearby set, so the seller drops to "other".
+    await expect(badge).toHaveClass(/\btcgplus-other\b/, { timeout: 5000 });
+    await expect(badge).not.toHaveClass(/\btcgplus-home\b/);
+  });
 });
