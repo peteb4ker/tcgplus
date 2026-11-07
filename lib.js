@@ -165,6 +165,35 @@ function capConditionMarkets(markets) {
 }
 
 /**
+ * Shipping a listing would actually add to the user's order, for the Deal
+ * chip's all-in total.
+ *
+ * TCGplayer charges one flat shipping fee per seller order, not per item
+ * ("you will only be charged one flat shipping fee per store, no matter
+ * how many items you order from them" — help.tcgplayer.com article
+ * 201996807). So once the cart already holds anything from this seller,
+ * the listing adds no shipping; TCGplayer itself relabels such listings
+ * "Shipping: Included". Otherwise the seller's "Free Shipping on Orders
+ * Over $5" promo zeroes shipping when this listing lifts the seller
+ * subtotal to the threshold. The $5 is fixed by TCGplayer, not set per
+ * seller (#186). Failing both, the listing's stated shipping applies.
+ *
+ * Approximation: TCGplayer bases the final fee on the order's largest
+ * item, so adding a bigger item (sealed product) to a cart of singles
+ * can still raise it. The chip follows TCGplayer's own "Included" label.
+ *
+ * @param {{ price: number, shipping: number, promoFree: boolean, sellerCart: number }} o
+ *   `sellerCart` is the user's current cart subtotal with this seller.
+ * @returns {{ shipping: number, reason: 'seller-in-cart' | 'promo' | 'listed' }}
+ */
+function effectiveDealShipping(o) {
+  const sellerCart = Number.isFinite(o.sellerCart) && o.sellerCart > 0 ? o.sellerCart : 0;
+  if (sellerCart > 0) return { shipping: 0, reason: 'seller-in-cart' };
+  if (o.promoFree && o.price >= FREE_SHIP_THRESHOLD) return { shipping: 0, reason: 'promo' };
+  return { shipping: Number.isFinite(o.shipping) && o.shipping > 0 ? o.shipping : 0, reason: 'listed' };
+}
+
+/**
  * Split a TCGplayer listing's condition text into a `{condition, variant}`
  * pair. The condition cell renders the variant inline as a suffix:
  *
@@ -707,6 +736,34 @@ function describeOosBanner(oosCount, hideOOS) {
   };
 }
 
+/**
+ * Sanitise a stored nearby-states value: keep only known state codes, drop
+ * the home state. Returns null when `raw` isn't an array so callers can
+ * leave their current set untouched.
+ *
+ * @param {unknown} raw  value read from chrome.storage
+ * @param {string} homeState
+ * @returns {Set<string> | null}
+ */
+function sanitizeNearbyStates(raw, homeState) {
+  if (!Array.isArray(raw)) return null;
+  return new Set(raw.filter((c) => typeof c === 'string' && STATE_CODES.has(c) && c !== homeState));
+}
+
+/**
+ * Normalise a stored activeFilter value. Migrates pre-rename values
+ * ('ca' -> 'home', 'west' -> 'nearby'); anything not in VALID_TIERS is null.
+ *
+ * @param {unknown} raw  value read from chrome.storage
+ * @returns {'home' | 'nearby' | 'other' | null}
+ */
+function normalizeActiveFilter(raw) {
+  let v = raw;
+  if (v === 'ca') v = 'home';
+  else if (v === 'west') v = 'nearby';
+  return typeof v === 'string' && VALID_TIERS.has(v) ? /** @type {'home' | 'nearby' | 'other'} */ (v) : null;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     STATES,
@@ -740,5 +797,8 @@ if (typeof module !== 'undefined' && module.exports) {
     createCoalescedRunner,
     cacheUntilNull,
     describeOosBanner,
+    effectiveDealShipping,
+    sanitizeNearbyStates,
+    normalizeActiveFilter,
   };
 }
