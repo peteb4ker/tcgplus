@@ -1,9 +1,12 @@
 (async () => {
   'use strict';
 
+  // `mpfev` is TCGplayer's frontend-version cache-buster; every endpoint
+  // accepts any recent value, so keep one shared copy.
+  const MPFEV = '5199';
   const SELLER_API = 'https://seller-stores-backend.tcgplayer.com/sm/seller/';
-  const PRODUCT_DETAILS_API = (id) => `https://mp-search-api.tcgplayer.com/v2/product/${id}/details?mpfev=5199`;
-  const SKU_MARKET_PRICE_API = 'https://mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search?mpfev=5199';
+  const PRODUCT_DETAILS_API = (id) => `https://mp-search-api.tcgplayer.com/v2/product/${id}/details?mpfev=${MPFEV}`;
+  const SKU_MARKET_PRICE_API = `https://mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search?mpfev=${MPFEV}`;
 
   // -- Settings state -----------------------------------------------------
   // Defaults; overridden in `loadSettings()` from chrome.storage.local.
@@ -61,7 +64,7 @@
   /** @type {Map<string, number>} */
   const cartSellerSubtotal = new Map();
   let cartSubtotal = 0;
-  const CART_SUMMARY_URL = (key) => `https://mpgateway.tcgplayer.com/v1/cart/${key}/summary?mpfev=5106`;
+  const CART_SUMMARY_URL = (key) => `https://mpgateway.tcgplayer.com/v1/cart/${key}/summary?mpfev=${MPFEV}`;
 
   // -- Seller cache -------------------------------------------------------
   // Null results (network blip, non-OK status) are evicted so the next
@@ -333,8 +336,15 @@
   function findListingPriceEl(item) {
     for (const sel of LISTING_PRICE_SELECTORS) {
       const el = item.querySelector(sel);
-      if (el && parsePrice(el.textContent)) return el;
+      if (el && parsePrice(el.textContent)) {
+        delete item.dataset.tcgplusPriceMissing;
+        return el;
+      }
     }
+    // Flag the listing itself so scan() can derive the warning from what's
+    // on the page now: it clears once no flagged listing remains (SPA nav
+    // to another product, or the price hydrating late on a backfill pass).
+    item.dataset.tcgplusPriceMissing = '1';
     if (!listingPriceWarned) {
       console.warn('[TCG+] could not find listing price element; share this DOM:', item.outerHTML.slice(0, 1500));
       listingPriceWarned = true;
@@ -629,11 +639,40 @@
     return item.querySelector('[data-testid="txtItemPrice"], .item-sales-info .price');
   }
 
+  /**
+   * Stash a cart row's unit price and quantity in its dataset (compare
+   * before set). The checkout verdict aggregates from these.
+   *
+   * @param {HTMLElement} item
+   */
+  function refreshCartRowPriceQty(item) {
+    const priceEl = findCartPriceEl(item);
+    const price = priceEl ? parsePrice(priceEl.textContent) : null;
+    if (!price) return;
+    const qtySelect = /** @type {HTMLSelectElement | null} */ (
+      item.querySelector('select[data-testid="mp-select__UpdateProductQuantity"]')
+    );
+    const unit = String(price);
+    const qty = String(parseQuantityValue(qtySelect ? qtySelect.value : null));
+    if (item.dataset.tcgplusUnitPrice !== unit) item.dataset.tcgplusUnitPrice = unit;
+    if (item.dataset.tcgplusQty !== qty) item.dataset.tcgplusQty = qty;
+  }
+
   async function annotateCartItem(item) {
     // pending = a fetch is already in flight for this row; don't double-up.
     if (item.dataset.tcgplus === 'pending') return;
-    // Chip already present and intact — no work needed.
-    if (item.querySelector('.tcgplus-price-chips--cart')) return;
+    // Settled rows — chip intact, or a row that legitimately has no chip
+    // (no market data, unknown condition, unreadable price) — only get
+    // their cheap price/qty datasets refreshed so the verdict tracks a
+    // quantity change. Re-running the whole annotation for chipless rows
+    // on every scan was wasted work.
+    if (
+      item.dataset.tcgplus === 'done' &&
+      (item.dataset.tcgplusChips !== '1' || item.querySelector('.tcgplus-price-chips--cart'))
+    ) {
+      refreshCartRowPriceQty(item);
+      return;
+    }
 
     // From here on we're either annotating a fresh row, or RE-annotating
     // a row whose chip TCGplayer destroyed. TCGplayer's responsive cart
@@ -650,13 +689,11 @@
     const productId = findCartProductId(item);
     const conditionText = findCartConditionText(item);
     const priceEl = findCartPriceEl(item);
-    if (!priceEl) {
-      item.dataset.tcgplus = 'done';
-      return;
-    }
-    const price = parsePrice(priceEl.textContent);
-    if (!price) {
-      item.dataset.tcgplus = 'done';
+    const price = priceEl ? parsePrice(priceEl.textContent) : null;
+    if (!priceEl || !price) {
+      // Not hydrated yet (or selector drift): stay unsettled so a later
+      // scan picks the row up. Cheap — no fetch happens before this.
+      delete item.dataset.tcgplus;
       return;
     }
     // Stash unit price + quantity as soon as they're known, market or
@@ -672,11 +709,9 @@
     // #149 coverage check then (correctly) caught as a mismatch against
     // the cart's own total — but a wrong default was the actual bug,
     // not a coverage gap.
-    const qtySelect = item.querySelector('select[data-testid="mp-select__UpdateProductQuantity"]');
-    item.dataset.tcgplusUnitPrice = String(price);
-    item.dataset.tcgplusQty = String(parseQuantityValue(qtySelect ? qtySelect.value : null));
+    refreshCartRowPriceQty(item);
     if (!productId || !conditionText) {
-      item.dataset.tcgplus = 'done';
+      delete item.dataset.tcgplus;
       renderCheckoutVerdict();
       return;
     }
@@ -690,6 +725,13 @@
       return;
     }
     const pricing = await fetchProductSkuPricing(productId);
+    if (!pricing) {
+      // Fetch failure (cache already evicted it): leave the row unsettled
+      // so the next scan retries, same contract as annotate().
+      delete item.dataset.tcgplus;
+      renderCheckoutVerdict();
+      return;
+    }
     item.dataset.tcgplus = 'done';
     const market = pricing ? pricing.get(skuLookupKey(condition, variant)) : undefined;
     if (!Number.isFinite(market)) {
@@ -755,6 +797,7 @@
     if (!banner.querySelector('.tcgplus-loc')) {
       const badge = document.createElement('span');
       badge.className = `tcgplus-loc tcgplus-${tier}`;
+      badge.dataset.tcgplusState = stateCode;
       badge.style.marginLeft = '8px';
       badge.textContent = text;
       // Anchor after the store-name element of whichever generation is
@@ -822,6 +865,15 @@
         badge.classList.remove('tcgplus-home', 'tcgplus-nearby', 'tcgplus-other', 'tcgplus-intl');
         badge.classList.add(`tcgplus-${tier}`);
       }
+    });
+    // The single-seller banner badge carries its own state code; recolour
+    // it too so it agrees with the listings after a settings change.
+    document.querySelectorAll(`:is(${SELLER_BANNER_SELECTOR}) .tcgplus-loc[data-tcgplus-state]`).forEach((rawEl) => {
+      const badge = /** @type {HTMLElement} */ (rawEl);
+      const tier = classifyState(badge.dataset.tcgplusState || '', homeState, nearbyStates);
+      if (badge.classList.contains(`tcgplus-${tier}`)) return;
+      badge.classList.remove('tcgplus-home', 'tcgplus-nearby', 'tcgplus-other', 'tcgplus-intl');
+      badge.classList.add(`tcgplus-${tier}`);
     });
     renderPanel();
   }
@@ -1106,6 +1158,13 @@
 
   function renderCheckoutVerdict() {
     const rows = document.querySelectorAll('.package-item');
+    // No cart rows → computeCartVerdict would return null for every
+    // anchor anyway. Skip the document-wide Order Summary text scan that
+    // would otherwise run on every scan of every non-cart page.
+    if (!rows.length) {
+      document.querySelectorAll('.tcgplus-checkout-verdict').forEach((el) => el.remove());
+      return;
+    }
     /** @type {Array<{ price: number, qty: number, market: number | null }>} */
     const items = [];
     rows.forEach((rawEl) => {
@@ -1205,6 +1264,13 @@
     });
     enhanceShopBySellerBanner();
     backfillPriceChips();
+    if (!document.querySelector('.listing-item[data-tcgplus-price-missing]')) clearDegraded('listing-price');
+    // SPA route changes don't reload the content script, so re-apply the
+    // Always Near Mint rewrite whenever the URL has moved since last scan.
+    if (location.href !== lastScanHref) {
+      lastScanHref = location.href;
+      enforceNearMint();
+    }
     watchCartCount();
     renderCartBadge();
     // Re-render so the panel disappears on SPA navigation away from a
@@ -1215,6 +1281,7 @@
     renderCheckoutVerdict();
   }
 
+  let lastScanHref = location.href;
   let scanTimer = null;
   const observer = new MutationObserver((mutations) => {
     if (scanTimer) return;
