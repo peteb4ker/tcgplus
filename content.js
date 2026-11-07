@@ -1114,8 +1114,9 @@
   function findOrderSummaryRow(labelRe, scope) {
     const candidates = (scope || document).querySelectorAll('div, span, p, dt, td, li, tr, h3, h4');
     for (const el of candidates) {
-      const own = (el.textContent || '').trim().replace(/\s+/g, ' ');
-      if (own.length > 40 || el.childElementCount > 3 || !labelRe.test(own)) continue;
+      if (el.childElementCount > 3) continue;
+      const own = summaryRowText(el);
+      if (own.length > 40 || !labelRe.test(own)) continue;
       let amount = parseUsdAmount(own);
       if (amount == null && /\bfree\b/i.test(own)) amount = 0;
       if (amount == null) {
@@ -1127,6 +1128,25 @@
       if (amount != null) return { row: el, amount };
     }
     return null;
+  }
+
+  /**
+   * An element's visible row text, normalised, with tooltip contents
+   * removed. The live checkout's Est. Tax label shares a wrapper with a
+   * hidden "Tax will be finalized at order submission." tooltip, which
+   * otherwise pushes the row past findOrderSummaryRow's 40-char row cap,
+   * so the row never matched and the checkout verdict never mounted
+   * (#122). Tooltips are found by ARIA role, not TCGplayer's class names.
+   *
+   * @param {Element} el
+   * @returns {string}
+   */
+  function summaryRowText(el) {
+    let text = el.textContent || '';
+    for (const tip of el.querySelectorAll('[role="tooltip"]')) {
+      text = text.replace(tip.textContent || '', ' ');
+    }
+    return text.trim().replace(/\s+/g, ' ');
   }
 
   /**
@@ -1190,7 +1210,7 @@
 
     // Collect anchors. Each entry renders one verdict block inside
     // `container`, with amount lookups scoped to `scope`.
-    /** @type {Array<{ container: Element, scope: Element, tax: number | null, preTax: boolean }>} */
+    /** @type {Array<{ container: Element, scope: Element, tax: number | null, preTax: boolean, after?: Element }>} */
     const anchors = [];
 
     // Checkout: the Order Summary, found via its Est. Tax row. Amount
@@ -1204,6 +1224,10 @@
         scope: taxHit.row.parentElement,
         tax: taxHit.amount,
         preTax: false,
+        // Mount right under the Est. Tax row. The live Order Summary card
+        // continues with Place Order, PayPal and the newsletter opt-in, so
+        // appending to the card would bury the verdict at its bottom.
+        after: taxHit.row,
       });
     }
 
@@ -1235,6 +1259,9 @@
         el = document.createElement('div');
         el.className = 'tcgplus-checkout-verdict';
         anchor.container.appendChild(el);
+      }
+      if (anchor.after && el.previousElementSibling !== anchor.after) {
+        anchor.after.insertAdjacentElement('afterend', el);
       }
       wanted.add(el);
       const wantHtml = buildVerdictHtml(verdict, anchor.preTax);
