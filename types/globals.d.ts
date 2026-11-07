@@ -93,6 +93,12 @@ type OosBannerDescription = {
 declare function describeOosBanner(oosCount: number, hideOOS: boolean): OosBannerDescription | null;
 declare function sanitizeNearbyStates(raw: unknown, homeState: string): Set<string> | null;
 declare function normalizeActiveFilter(raw: unknown): 'home' | 'nearby' | 'other' | null;
+declare function effectiveDealShipping(o: {
+  price: number;
+  shipping: number;
+  promoFree: boolean;
+  sellerCart: number;
+}): { shipping: number; reason: 'seller-in-cart' | 'promo' | 'listed' };
 
 // storage.js — chrome.storage.local helpers shared by content.js and the options page.
 

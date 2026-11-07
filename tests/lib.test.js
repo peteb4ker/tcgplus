@@ -795,3 +795,42 @@ test('normalizeActiveFilter passes valid tiers and nulls everything else', () =>
   assert.equal(lib.normalizeActiveFilter(null), null);
   assert.equal(lib.normalizeActiveFilter(1), null);
 });
+
+test('effectiveDealShipping: seller already in cart adds no shipping', () => {
+  assert.deepEqual(lib.effectiveDealShipping({ price: 1, shipping: 1.49, promoFree: false, sellerCart: 0.5 }), {
+    shipping: 0,
+    reason: 'seller-in-cart',
+  });
+  // Holds regardless of promo or a large stated shipping cost.
+  assert.deepEqual(lib.effectiveDealShipping({ price: 20, shipping: 9.99, promoFree: true, sellerCart: 3 }), {
+    shipping: 0,
+    reason: 'seller-in-cart',
+  });
+});
+
+test('effectiveDealShipping: $5 promo applies when this listing clears the threshold', () => {
+  assert.deepEqual(lib.effectiveDealShipping({ price: 5, shipping: 1.49, promoFree: true, sellerCart: 0 }), {
+    shipping: 0,
+    reason: 'promo',
+  });
+  assert.deepEqual(lib.effectiveDealShipping({ price: 4.99, shipping: 1.49, promoFree: true, sellerCart: 0 }), {
+    shipping: 1.49,
+    reason: 'listed',
+  });
+});
+
+test('effectiveDealShipping: otherwise the listed shipping applies', () => {
+  assert.deepEqual(lib.effectiveDealShipping({ price: 8, shipping: 1.31, promoFree: false, sellerCart: 0 }), {
+    shipping: 1.31,
+    reason: 'listed',
+  });
+  assert.deepEqual(lib.effectiveDealShipping({ price: 8, shipping: 0, promoFree: false, sellerCart: 0 }), {
+    shipping: 0,
+    reason: 'listed',
+  });
+  // Junk cart values are treated as an empty seller cart.
+  assert.deepEqual(lib.effectiveDealShipping({ price: 8, shipping: 2, promoFree: false, sellerCart: NaN }), {
+    shipping: 2,
+    reason: 'listed',
+  });
+});

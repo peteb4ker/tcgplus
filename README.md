@@ -38,7 +38,13 @@ Each listing gets a row of chips that show price-vs-market, shipping cost, and w
 
 - **Price-vs-market chip**: how far the price is from the market price, e.g. `+$5.00 (+16.7%)`. Solid green below market. Above market shifts from yellow through orange to red, hitting full red at 10% over.
 - **Shipping chip**: replaces the plain "+ $X.XX Shipping" line. Green when shipping is included, yellow under $2, red at $2 or more (labelled "high shipping").
-- **Deal chip**: a purple "DEAL" badge appears when the listing's all-in cost would still beat the market price. The math factors in any "Free Shipping on Orders Over $X" promo on the listing, but only when your existing cart subtotal _with that same seller_ plus the listing's price clears the global free-shipping threshold (currently $5).
+- **Deal chip**: a purple "DEAL" badge appears when the listing's all-in cost would still beat the market price. All-in means the listing price plus the shipping it would actually add to your order:
+  - **Seller already in your cart**: no extra shipping. TCGplayer charges one shipping fee per seller order, so a second item from the same seller ships in the same package. The chip updates live as your cart changes.
+  - **"Free Shipping on Orders Over $5" promo**: no shipping when the listing's price clears the $5 threshold. TCGplayer fixes this threshold; sellers don't set it.
+  - **Otherwise**: the listing's stated shipping.
+
+  TCGplayer bases the final fee on the largest item in the order, so adding sealed product to a cart of singles from the same seller can still cost a little more shipping than the chip assumes.
+
 - On the search grid and on seller storefront pages (`tcgplayer.com/sellers/…`), each tile shows only the price-vs-market chip, computed against TCGplayer's shipping-inclusive cheapest listing — so it can read slightly worse than the list-view delta for the same card (the tooltip notes this). List view shows the full chip row.
 
 #### Which market price the chips use

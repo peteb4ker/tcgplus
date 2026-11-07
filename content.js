@@ -491,13 +491,15 @@
     const sellerKey = item.dataset.tcgplusSellerKey || '';
     if (!price || !market) return '';
     const sellerCart = sellerKey ? cartSellerSubtotal.get(sellerKey) || 0 : 0;
-    const promoQualifies = promoFree && sellerCart + price >= FREE_SHIP_THRESHOLD;
-    const effectiveShipping = promoQualifies ? 0 : shipping;
-    const total = price + effectiveShipping;
+    const eff = effectiveDealShipping({ price, shipping, promoFree, sellerCart });
+    const total = price + eff.shipping;
     if (total >= market) return '';
-    const note = promoQualifies
-      ? `Total $${total.toFixed(2)} (free-shipping promo applies: $${sellerCart.toFixed(2)} already with this seller + $${price.toFixed(2)} clears the $${FREE_SHIP_THRESHOLD.toFixed(2)} threshold)`
-      : `Total $${total.toFixed(2)} is below market $${market.toFixed(2)}`;
+    let note = `Total $${total.toFixed(2)} is below market $${market.toFixed(2)}`;
+    if (eff.reason === 'seller-in-cart' && shipping > 0) {
+      note = `Total $${total.toFixed(2)} with no extra shipping: you already have $${sellerCart.toFixed(2)} from this seller in your cart, and TCGplayer charges one shipping fee per seller`;
+    } else if (eff.reason === 'promo') {
+      note = `Total $${total.toFixed(2)} (free-shipping promo applies: $${price.toFixed(2)} clears the $${FREE_SHIP_THRESHOLD.toFixed(2)} threshold)`;
+    }
     return `<span class="tcgplus-price-chip tcgplus-deal-chip" title="${note}">Deal</span>`;
   }
 
