@@ -2,50 +2,50 @@
 
 _Last updated: 2026-11-07_
 
-TCGPlus is an open-source browser extension that adds usability improvements on top of [TCGplayer.com](https://www.tcgplayer.com). It is not affiliated with TCGplayer, Inc.
+TCGPlus is an open-source browser extension that makes [TCGplayer.com](https://www.tcgplayer.com) easier to shop. It is not affiliated with TCGplayer, Inc.
 
 ## What TCGPlus does with your data
 
-**Nothing leaves your browser.** TCGPlus does not run a server, does not collect analytics, does not record telemetry, and does not transmit any data to the developer or to any third party. There is no account, no login, and no opt-in tracking.
+**Your data stays in your browser.** TCGPlus has no server, collects no analytics or telemetry, and sends nothing to the developer or any third party. There is no account and no login.
 
-The extension makes four kinds of network requests, all to TCGplayer's own servers (three hosts in total). Only the cart summary uses the TCGplayer session cookies your browser already has; the other three are sent without cookies.
+TCGPlus makes four kinds of requests, all to TCGplayer's own servers on three hosts. Only the cart request includes your TCGplayer session cookies. The other three are sent without cookies.
 
-1. **Vendor lookups.** When TCGPlus sees a listing it doesn't already have cached, it asks `seller-stores-backend.tcgplayer.com` for that vendor's public profile (city, state, country) so it can show the location badge. Sent without cookies.
-2. **Cart summary.** TCGPlus asks `mpgateway.tcgplayer.com` (`/v1/cart/<key>/summary`) for the contents of your TCGplayer cart so it can show the running subtotal next to the cart count and feed the Deal-chip math. This is the same endpoint TCGplayer's own pages use, and it is the only request that includes your TCGplayer session cookies, because the cart belongs to your session.
-3. **Product SKU catalogue.** For each product on the page, TCGPlus asks `mp-search-api.tcgplayer.com` (`/v2/product/<id>/details`) for the product's list of SKUs (condition, variant, language) so it can match each listing to the right SKU. Sent without cookies.
-4. **Per-SKU market prices.** TCGPlus asks `mpgateway.tcgplayer.com` (`/v1/pricepoints/marketprice/skus/search`) for the public market price of those SKUs, which feeds the price-vs-market and Deal chips. Sent without cookies. If this lookup fails, TCGPlus falls back to the market price already shown on the page.
+1. **Seller locations.** For each seller on the page that it hasn't looked up yet, TCGPlus asks `seller-stores-backend.tcgplayer.com` for the seller's public profile (city, state and country) to show the location badge.
+2. **Your cart.** TCGPlus asks `mpgateway.tcgplayer.com` (`/v1/cart/<key>/summary`) for your cart's contents. It uses them to show your cart subtotal and to work out the DEAL badge. TCGplayer's own pages use the same request. This is the only request that includes your TCGplayer session cookies, because the cart belongs to your session.
+3. **Product printings and conditions.** For each product on the page, TCGPlus asks `mp-search-api.tcgplayer.com` (`/v2/product/<id>/details`) for the product's list of SKUs (condition, printing and language), so it can match each listing to the right one.
+4. **Market prices.** TCGPlus asks `mpgateway.tcgplayer.com` (`/v1/pricepoints/marketprice/skus/search`) for the public market price of those SKUs. These prices feed the price chips and the DEAL badge. If this request fails, TCGPlus uses the market price shown on the page instead.
 
-No request goes anywhere else.
+TCGPlus sends no other requests.
 
 ## What TCGPlus stores on your device
 
-The following settings are saved to `chrome.storage.local` so the extension remembers them across page loads:
+TCGPlus saves these settings in `chrome.storage.local` so it remembers them between visits:
 
 - Your home state and nearby states
-- Which tier filter is currently active, if any
-- Which on-page sections you've chosen to hide (price breakdown panel, recommendations carousel, page footer)
+- The location filter you last selected, if any
+- Which parts of the page you've chosen to hide (price breakdown panel, recommendations carousel, page footer)
 - Whether "Always Near Mint" is on
 - Whether "Hide tiles with no matching listings" is on
-- A flag recording that settings from older versions (which used the page's `localStorage`) have been migrated
+- A flag recording that settings from older versions, which used the page's `localStorage`, have been moved across
 
-This data lives only on your computer, in your browser. Uninstalling the extension or clearing your browser's storage removes it.
+This data stays on your computer. Uninstalling the extension or clearing your browser's storage deletes it.
 
-## Permissions the extension requests
+## Permissions
 
-- `storage`: required to save your settings.
-- `host_permissions` for `https://seller-stores-backend.tcgplayer.com/*`, `https://mpgateway.tcgplayer.com/*`, and `https://mp-search-api.tcgplayer.com/*`: required to make the TCGplayer API calls described above.
-- A content script on `https://www.tcgplayer.com/*`: required to add the panel, chips, and badges to TCGplayer pages.
+- `storage`: to save your settings.
+- Host permissions for `https://seller-stores-backend.tcgplayer.com/*`, `https://mpgateway.tcgplayer.com/*` and `https://mp-search-api.tcgplayer.com/*`: to make the requests listed above.
+- A content script on `https://www.tcgplayer.com/*`: to add the panel, chips and badges to TCGplayer pages.
 
-The extension does not request access to any other site.
+TCGPlus does not request access to any other site.
 
 ## Source code
 
-TCGPlus is MIT-licensed and the entire source is public on GitHub:
+TCGPlus is MIT-licensed, and all of its source is public:
 
 > [github.com/peteb4ker/tcgplus](https://github.com/peteb4ker/tcgplus)
 
-If you want to verify any of the claims on this page, the relevant code lives in `lib.js`, `storage.js`, `content.js`, and `background.js`.
+To check any claim on this page, see `lib.js`, `storage.js`, `content.js` and `background.js`.
 
 ## Contact
 
-For privacy questions, open an issue on the GitHub repository above. For security disclosures, see [`SECURITY.md`](https://github.com/peteb4ker/tcgplus/blob/main/SECURITY.md).
+For privacy questions, open an issue on the GitHub repository. To report a security problem, see [`SECURITY.md`](https://github.com/peteb4ker/tcgplus/blob/main/SECURITY.md).

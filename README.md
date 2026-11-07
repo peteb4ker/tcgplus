@@ -3,7 +3,7 @@
 [![Install from the Chrome Web Store](https://img.shields.io/chrome-web-store/v/laaddebgfkkfemgjgjibdhpnflmchjaj?label=Install%20from%20the%20Chrome%20Web%20Store&logo=googlechrome&logoColor=fff&color=4285f4&style=for-the-badge)](https://chromewebstore.google.com/detail/tcgplus/laaddebgfkkfemgjgjibdhpnflmchjaj)
 [![Chrome Web Store users](https://img.shields.io/chrome-web-store/users/laaddebgfkkfemgjgjibdhpnflmchjaj?label=users&color=05772d&style=for-the-badge)](https://chromewebstore.google.com/detail/tcgplus/laaddebgfkkfemgjgjibdhpnflmchjaj)
 
-TCGPlus adds price-vs-market deltas, shipping cost, a deal flag, and seller location to every TCGplayer listing.
+TCGPlus helps you buy cards on TCGplayer for less. On every listing it shows whether the price is good, what shipping will really cost, and where the seller is, so you can find the best listing without opening each one.
 
 ![TCGPlus on a TCGplayer product page](docs/images/hero.png)
 
@@ -15,45 +15,13 @@ Install TCGPlus from the [Chrome Web Store](https://chromewebstore.google.com/de
 
 ## Features
 
-TCGPlus runs on product pages, search pages, seller storefront pages, and the cart and checkout pages.
+TCGPlus works on product pages, search results, seller storefronts, the cart and checkout.
 
-### Vendor location badges
+### See whether a price is good
 
-Every listing gets a city/state badge under the seller's rating, color-coded by where they ship from:
+Each listing shows how far its price is from the market price, for example `+$5.00 (+16.7%)`. You can tell at a glance which listings are cheap and which are overpriced, without doing the math yourself.
 
-- Green: your home state
-- Yellow: your nearby states
-- Gray: international
-- Uncolored: anywhere else in the US
-
-When you've filtered to a single seller, the location moves into the "You are shopping from" banner and the per-listing badges are hidden, since they'd all be identical.
-
-### Click-to-filter panel
-
-A floating panel summarizes the page by tier (Home / Nearby / Other US). Click a tier to filter the listings to just that group, click again to clear. The tiers are buttons, so you can also Tab to one and press Enter or Space. Counts reflect only the active page. The chosen filter sticks across reloads.
-
-### Price, shipping, and Deal chips
-
-Each listing gets a row of chips that show price-vs-market, shipping cost, and whether the all-in cost is a deal.
-
-- **Price-vs-market chip**: how far the price is from the market price, e.g. `+$5.00 (+16.7%)`. Solid green below market. Above market shifts from yellow through orange to red, hitting full red at 10% over.
-- **Shipping chip**: replaces the plain "+ $X.XX Shipping" line. Green when shipping is included, yellow under $2, red at $2 or more (labelled "high shipping").
-- **Deal chip**: a purple "DEAL" badge appears when the listing's all-in cost would still beat the market price. All-in means the listing price plus the shipping it would actually add to your order:
-  - **Seller already in your cart**: no extra shipping. TCGplayer charges one shipping fee per seller order, so a second item from the same seller ships in the same package. The chip updates live as your cart changes.
-  - **"Free Shipping on Orders Over $5" promo**: no shipping when the listing's price clears the $5 threshold. TCGplayer fixes this threshold; sellers don't set it.
-  - **Otherwise**: the listing's stated shipping.
-
-  TCGplayer bases the final fee on the largest item in the order, so adding sealed product to a cart of singles from the same seller can still cost a little more shipping than the chip assumes.
-
-- On the search grid and on seller storefront pages (`tcgplayer.com/sellers/…`), each tile shows only the price-vs-market chip, computed against TCGplayer's shipping-inclusive cheapest listing — so it can read slightly worse than the list-view delta for the same card (the tooltip notes this). List view shows the full chip row.
-
-#### Which market price the chips use
-
-When a page shows listings across variants (Normal / Holofoil / Reverse Holofoil) or conditions (NM / LP / MP / HP / DM), each listing chips against its **own SKU's market price**, matched by condition and variant — a Reverse Holofoil listing compares against the Reverse Holofoil market, not the page's headline.
-
-Within a variant, each condition's market price is capped at the best condition above it (NM → LP → MP → HP → Damaged). TCGplayer recalculates thin condition tiers days after Near Mint, so a stale LP "market" can sit above the fresh NM one — uncapped, that could produce an inflated delta and a false DEAL badge. Both the delta chip and the Deal math use the capped value.
-
-If the per-SKU lookup is unavailable, the chip falls back to the page's headline market price, and only on listings whose condition matches the headline — mismatched listings get the shipping chip only rather than a misleading delta.
+The chip is green below market and grey at market. Above market it shifts from yellow to orange to red, reaching full red at 10% over.
 
 **Below market**
 
@@ -67,44 +35,88 @@ If the per-SKU lookup is unavailable, the chip falls back to the page's headline
 
 ![Red chips above market](docs/images/chips-above-market.png)
 
-### Cart and checkout: all-in cost vs market
+On the search grid and on seller storefronts (`tcgplayer.com/sellers/…`), each tile gets the same chip. There the chip compares TCGplayer's cheapest listing price, which includes shipping, against market, so it can read slightly worse than the list view for the same card. The chip's tooltip says so.
 
-At a card show you'd pay the sum of the cards' market prices in cash, with no shipping or tax. TCGPlus compares that baseline to what your cart actually costs, and puts a per-item chip on every line item:
+#### Which market price is used
 
-- **Cart page**: in every Cart Summary box (desktop sidebar and mobile layout), labeled "All-in vs market (before tax)" since TCGplayer calculates taxes at checkout.
-- **Checkout**: in the Order Summary card under Est. Tax, with the tax included in the verdict.
+A Reverse Holofoil card and a Normal card can have very different prices, and so can Near Mint and Lightly Played copies. TCGPlus compares each listing against the market price for its own printing and condition, not the single headline price at the top of the page.
 
-The breakdown shows the cart's market value (per-SKU, quantity-aware), the items total, shipping, tax where known, and a color-coded verdict chip, e.g. `-$3.14 (-8.2%)`. Items with no market data are counted at their listed price and a note says how many.
+TCGplayer updates market prices for less common conditions more slowly than for Near Mint, so a Lightly Played price can briefly sit above the Near Mint price. TCGPlus caps each condition's market price at the price of the better condition above it (Near Mint, then Lightly Played, Moderately Played, Heavily Played, Damaged). That stops a stale price from making a listing look like a deal.
 
-If TCGPlus can't read a row's price or quantity, it checks its own item total against the cart's own reported total rather than guess. On a mismatch it shows a plain notice instead of a verdict, since a partial row count would make the market value and the delta wrong.
+If TCGplayer's per-printing prices can't be loaded, TCGPlus falls back to the headline market price. It then only shows a price chip on listings whose condition matches that headline price. Other listings get the shipping chip only, rather than a misleading comparison.
 
-### Cart subtotal in the header
+### Know what shipping will cost
 
-TCGPlus adds the cart's current subtotal next to the cart icon in TCGplayer's header, in the same green TCGplayer uses for prices. It appears once the cart has loaded and holds something (no placeholder `$0.00` before the cart loads or when it is empty), and refreshes whenever the count badge changes. The Deal-chip math uses the same number.
+A cheap card with expensive shipping isn't cheap. TCGPlus replaces each listing's plain shipping line with a coloured chip: green when shipping is included, yellow under $2, and red at $2 or more ("high shipping").
 
-### Settings page
+### Spot real deals, shipping included
 
-Click the gear icon on the floating panel, click the TCGPlus icon in your browser toolbar, or open **Extension options** from `chrome://extensions` — they all open the same settings page:
+A card $0.50 under market isn't a deal if it costs $1.49 to ship. The purple **DEAL** badge appears only when what you'd actually pay, the price plus any shipping it adds to your order, is still below market.
 
-- **Home state**: pick any US state. Default is California.
-- **Nearby states**: tick zero or more. The home state is auto-disabled so you can't pick it twice. Default is the western US set (OR, WA, NV, AZ, ID, UT, MT, WY, CO, NM, AK, HI).
-- **Hide on page**: checkboxes to hide TCGplayer's price-breakdown panel, recommendations carousel, and footer.
-- **Always Near Mint**: rewrites any product or search URL without `Condition=Near+Mint` to include it before the listings render, including when you move between pages inside TCGplayer. Off by default.
-- **Hide tiles with no matching listings**: hides search tiles whose listings don't match your current filters. TCGplayer marks these "Out of Stock", but they're usually a language or condition mismatch rather than true unavailability. Whenever any are present, a banner above the grid shows a count and a toggle button, so hidden tiles are never silent. Off by default.
+It also accounts for shipping you've already paid. TCGplayer charges one shipping fee per seller, so once you have a card from a seller in your cart, more cards from them ship in the same package at no extra cost. The badge updates as your cart changes.
 
-Settings are stored in `chrome.storage.local`. Changes apply live to any open TCGplayer tab — no reload needed.
+**How it's calculated.** The badge compares the listing price plus its shipping against the market price. The shipping counted is:
+
+- **Seller already in your cart:** none.
+- **"Free Shipping on Orders Over $5" promo:** none, when the listing's price is $5 or more. TCGplayer sets this $5 threshold; sellers can't change it.
+- **Otherwise:** the listing's stated shipping.
+
+TCGplayer bases the final fee on the largest item in the order. Adding sealed product to a cart of singles from the same seller can therefore cost a little more shipping than the badge assumes.
+
+### See where each seller ships from
+
+A seller near you usually means faster delivery. TCGPlus shows each seller's city and state under their rating, so you can choose a closer seller without opening their storefront. Listings from your home state and nearby states also get a coloured stripe on the left, so they stand out as you scroll.
+
+The badge is green for your home state, yellow for the nearby states you choose in settings, plain grey for the rest of the US, and blue-grey for international sellers.
+
+When you're shopping a single seller's inventory, the location appears once in the "You are shopping from" banner instead of on every listing.
+
+### Filter listings by location
+
+A floating panel counts the listings on the page by location: your home state, nearby states, and the rest of the US. Click a group to show only those listings, and click it again to show everything. You can also Tab to a group and press Enter or Space. The filter you pick stays on when you reload or move to another product.
+
+If TCGPlus can't read part of a page, for example after TCGplayer changes its layout, the panel shows a warning. That way you know which numbers to discount.
+
+### Check whether your whole cart is worth it
+
+Before you pay, TCGPlus tells you whether your cart beats buying the same cards at market price, the way you would at a card show, after shipping and tax. A result like `-$3.14 (-8.2%)` means you're paying $3.14 less than market.
+
+The breakdown appears in two places:
+
+- **Cart page:** in the Cart Summary, labelled "before tax" because TCGplayer adds tax at checkout.
+- **Checkout:** in the Order Summary, under Est. Tax, with tax included.
+
+It lists the cart's market value, the items total, shipping and tax. Each item with a known market price also gets its own price chip. Market value uses each item's own printing, condition and quantity. Items with no market price are counted at the price you're paying, and a note says how many.
+
+TCGPlus checks its total against the cart's own total before showing a result. If they don't match, for example because a row couldn't be read, it says so instead of showing a wrong number.
+
+### Track your spending from any page
+
+TCGPlus shows your cart subtotal next to the cart icon in TCGplayer's header, so you can see what you're spending without opening the cart. It appears once the cart has loaded and has something in it, and it updates when you add or remove items.
+
+### Settings
+
+To open settings, click the gear on the floating panel, click the TCGPlus icon in your browser toolbar, or choose **Extension options** in `chrome://extensions`.
+
+- **Home state:** where you live, so nearby sellers stand out. Default: California.
+- **Nearby states:** other states whose sellers you'd consider close. Default: the western US (OR, WA, NV, AZ, ID, UT, MT, WY, CO, NM, AK, HI). Your home state can't also be a nearby state.
+- **Hide on page:** remove parts of TCGplayer's product pages you don't use: the price breakdown panel, the recommendations carousel and the page footer.
+- **Always Near Mint:** skip setting the condition filter on every search. TCGPlus adds `Condition=Near+Mint` to any product or search page address that lacks it, including when you move between pages inside TCGplayer. Off by default.
+- **Hide tiles with no matching listings:** clean up search results. TCGplayer marks these tiles "Out of Stock", but usually the card is available in another language or condition that your filters exclude. When any are on the page, a banner above the results shows how many and lets you show or hide them. Off by default.
+
+Changes apply immediately to open TCGplayer tabs. Settings are stored on your computer in `chrome.storage.local`.
 
 ![TCGPlus settings page](docs/images/options-page.png)
 
 ## Privacy
 
-TCGPlus runs entirely in your browser. There is no TCGPlus server, no account, and no analytics. The only network calls it makes are to TCGplayer's own APIs:
+TCGPlus runs entirely in your browser. There is no TCGPlus server, no account and no analytics. It talks only to TCGplayer:
 
-- `seller-stores-backend.tcgplayer.com/sm/seller/<key>` for each unique vendor on the page (used for the location badge).
-- `mpgateway.tcgplayer.com/v1/cart/<key>/summary` for the cart subtotal and per-seller breakdown.
-- `mp-search-api.tcgplayer.com/v2/product/<id>/details` for the SKU catalogue of each product (variant + condition), and `mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search` for per-SKU market prices. These power the variant-aware price-vs-market and Deal chips on product and search-list pages, and the per-item chips and verdict on the cart and checkout pages.
+- `seller-stores-backend.tcgplayer.com/sm/seller/<key>`: each seller's location, for the location badge.
+- `mpgateway.tcgplayer.com/v1/cart/<key>/summary`: your cart subtotal and how much you have from each seller.
+- `mp-search-api.tcgplayer.com/v2/product/<id>/details` and `mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search`: each product's printings and conditions, and their market prices. These feed the price chips, the DEAL badge and the cart verdict.
 
-Those three hosts are the extension's only host permissions in the manifest. Only the cart-summary call sends your TCGplayer session cookies (the cart belongs to your session); the vendor, SKU catalogue, and market-price calls are sent without cookies. The page's headline market price is read from the page itself as a fallback when per-SKU pricing isn't available. Settings are stored locally in `chrome.storage.local`. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
+These three hosts are the extension's only host permissions. Only the cart request sends your TCGplayer session cookies, because the cart belongs to your session; the others are sent without cookies. If per-printing prices can't be loaded, TCGPlus reads the market price shown on the page instead. Nothing is sent anywhere else. See the [privacy policy](docs/privacy.md) for details.
 
 ## Development
 

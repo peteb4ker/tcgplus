@@ -2,7 +2,7 @@
   "name": "tcgplus",
   "version": "0.7.0",
   "private": true,
-  "description": "Compares each TCGplayer listing to market price, shows shipping and seller location, and marks the deals. Free and open source.",
+  "description": "Find real deals on TCGplayer: price vs market, the shipping you'd pay, and seller location on every listing. Free and open source.",
   "scripts": {
     "test": "node --test tests/*.test.js",
     "test:e2e": "playwright test",
