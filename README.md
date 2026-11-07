@@ -74,7 +74,7 @@ If TCGPlus can't read a row's price or quantity, it checks its own item total ag
 
 ### Cart subtotal in the header
 
-TCGPlus adds the cart's current subtotal next to the cart icon in TCGplayer's header, in the same green TCGplayer uses for prices. It shows even at `$0.00` and refreshes whenever the count badge changes. The Deal-chip math uses the same number.
+TCGPlus adds the cart's current subtotal next to the cart icon in TCGplayer's header, in the same green TCGplayer uses for prices. It appears once the cart has loaded and holds something (no placeholder `$0.00` before the cart loads or when it is empty), and refreshes whenever the count badge changes. The Deal-chip math uses the same number.
 
 ### Settings page
 

@@ -168,6 +168,12 @@
     return m ? m[1] : null;
   }
 
+  // True once a cart summary has loaded successfully. Until then the
+  // header badge stays hidden rather than showing a placeholder "$0.00".
+  // A later failed fetch leaves it as-is (last known subtotal stands, same
+  // as cartSellerSubtotal); losing the cart cookie resets it.
+  let cartLoaded = false;
+
   // Coalesced: a refresh requested while a fetch is in flight queues
   // exactly one follow-up fetch after the current one settles, so the
   // subtotal always reflects a response requested *after* the last cart
@@ -177,6 +183,7 @@
     const key = getCartKey();
     if (!key) {
       cartSubtotal = 0;
+      cartLoaded = false;
       cartSellerSubtotal.clear();
       renderCartBadge();
       return;
@@ -198,6 +205,7 @@
         } else {
           cartSubtotal = 0;
         }
+        cartLoaded = true;
         clearDegraded('cart');
       } else {
         markDegraded('cart', "Couldn't load your cart. The Deal chip will fall back to ignoring cart context.");
@@ -213,6 +221,13 @@
     const countEl = document.querySelector('.mp-header__content__cart-count');
     if (!countEl) return;
     let label = countEl.querySelector('.tcgplus-cart-subtotal');
+    // Only show a subtotal we actually fetched, and only for a non-empty
+    // cart: before the first summary resolves, with no cart cookie, or with
+    // an empty cart, a "$0.00" badge is noise.
+    if (!cartLoaded || !(cartSubtotal > 0)) {
+      if (label) label.remove();
+      return;
+    }
     if (!label) {
       label = document.createElement('span');
       label.className = 'tcgplus-cart-subtotal';
