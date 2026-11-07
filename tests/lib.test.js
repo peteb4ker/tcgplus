@@ -764,3 +764,73 @@ test('describeOosBanner floors fractional counts', () => {
   // into a future caller) by flooring to a whole tile.
   assert.equal(lib.describeOosBanner(2.7, false).text, '2 tiles with no listings matching your filters');
 });
+
+test('sanitizeNearbyStates returns null for non-array input', () => {
+  assert.equal(lib.sanitizeNearbyStates(undefined, 'CA'), null);
+  assert.equal(lib.sanitizeNearbyStates(null, 'CA'), null);
+  assert.equal(lib.sanitizeNearbyStates('OR', 'CA'), null);
+  assert.equal(lib.sanitizeNearbyStates({ 0: 'OR' }, 'CA'), null);
+});
+
+test('sanitizeNearbyStates drops non-strings, unknown codes, and the home state', () => {
+  const out = lib.sanitizeNearbyStates(['OR', 42, null, 'XX', 'or', 'CA', 'WA', 'OR'], 'CA');
+  assert.ok(out instanceof Set);
+  assert.deepEqual([...out], ['OR', 'WA']);
+  assert.deepEqual([...lib.sanitizeNearbyStates([], 'CA')], []);
+});
+
+test('normalizeActiveFilter migrates legacy values', () => {
+  assert.equal(lib.normalizeActiveFilter('ca'), 'home');
+  assert.equal(lib.normalizeActiveFilter('west'), 'nearby');
+});
+
+test('normalizeActiveFilter passes valid tiers and nulls everything else', () => {
+  assert.equal(lib.normalizeActiveFilter('home'), 'home');
+  assert.equal(lib.normalizeActiveFilter('nearby'), 'nearby');
+  assert.equal(lib.normalizeActiveFilter('other'), 'other');
+  assert.equal(lib.normalizeActiveFilter('intl'), null);
+  assert.equal(lib.normalizeActiveFilter('HOME'), null);
+  assert.equal(lib.normalizeActiveFilter(''), null);
+  assert.equal(lib.normalizeActiveFilter(undefined), null);
+  assert.equal(lib.normalizeActiveFilter(null), null);
+  assert.equal(lib.normalizeActiveFilter(1), null);
+});
+
+test('effectiveDealShipping: seller already in cart adds no shipping', () => {
+  assert.deepEqual(lib.effectiveDealShipping({ price: 1, shipping: 1.49, promoFree: false, sellerCart: 0.5 }), {
+    shipping: 0,
+    reason: 'seller-in-cart',
+  });
+  // Holds regardless of promo or a large stated shipping cost.
+  assert.deepEqual(lib.effectiveDealShipping({ price: 20, shipping: 9.99, promoFree: true, sellerCart: 3 }), {
+    shipping: 0,
+    reason: 'seller-in-cart',
+  });
+});
+
+test('effectiveDealShipping: $5 promo applies when this listing clears the threshold', () => {
+  assert.deepEqual(lib.effectiveDealShipping({ price: 5, shipping: 1.49, promoFree: true, sellerCart: 0 }), {
+    shipping: 0,
+    reason: 'promo',
+  });
+  assert.deepEqual(lib.effectiveDealShipping({ price: 4.99, shipping: 1.49, promoFree: true, sellerCart: 0 }), {
+    shipping: 1.49,
+    reason: 'listed',
+  });
+});
+
+test('effectiveDealShipping: otherwise the listed shipping applies', () => {
+  assert.deepEqual(lib.effectiveDealShipping({ price: 8, shipping: 1.31, promoFree: false, sellerCart: 0 }), {
+    shipping: 1.31,
+    reason: 'listed',
+  });
+  assert.deepEqual(lib.effectiveDealShipping({ price: 8, shipping: 0, promoFree: false, sellerCart: 0 }), {
+    shipping: 0,
+    reason: 'listed',
+  });
+  // Junk cart values are treated as an empty seller cart.
+  assert.deepEqual(lib.effectiveDealShipping({ price: 8, shipping: 2, promoFree: false, sellerCart: NaN }), {
+    shipping: 2,
+    reason: 'listed',
+  });
+});

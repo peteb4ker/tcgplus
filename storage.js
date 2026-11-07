@@ -20,6 +20,22 @@ const STORAGE_KEYS = {
 const ALL_STORAGE_KEYS = Object.values(STORAGE_KEYS);
 
 /**
+ * The "hide part of the TCGplayer page" toggles. `id` matches the options
+ * page's `data-toggle-id`; `bodyClass` is what content.js puts on <html>.
+ *
+ * @type {ReadonlyArray<{ id: string; storageKey: string; bodyClass: string }>}
+ */
+const HIDE_TOGGLES = [
+  { id: 'breakdown', storageKey: STORAGE_KEYS.hideBreakdown, bodyClass: 'tcgplus-hide-breakdown' },
+  {
+    id: 'recommendations',
+    storageKey: STORAGE_KEYS.hideRecommendations,
+    bodyClass: 'tcgplus-hide-recommendations',
+  },
+  { id: 'footer', storageKey: STORAGE_KEYS.hideFooter, bodyClass: 'tcgplus-hide-footer' },
+];
+
+/**
  * Read all TCGPlus settings from chrome.storage.local. Returns an object
  * keyed by the values in STORAGE_KEYS, with undefined entries for keys that
  * have never been set.
@@ -115,6 +131,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     STORAGE_KEYS,
     ALL_STORAGE_KEYS,
+    HIDE_TOGGLES,
     loadAllSettings,
     saveSetting,
     removeSetting,
