@@ -56,7 +56,10 @@
   }
 
   // -- Load + bind --------------------------------------------------------
-  await migrateFromLocalStorageIfNeeded();
+  // No migrateFromLocalStorageIfNeeded() here: this page's localStorage is
+  // the extension origin's, which never held the legacy tcgplus.* keys.
+  // Running it here would find nothing yet set the "migrated" flag, blocking
+  // the content script (the only context that can see the old keys).
   const stored = await loadAllSettings();
 
   const storedHome = stored[STORAGE_KEYS.homeState];
