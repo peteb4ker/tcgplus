@@ -89,7 +89,7 @@ Click the gear icon on the floating panel, click the TCGPlus icon in your browse
 - **Home state**: pick any US state. Default is California.
 - **Nearby states**: tick zero or more. The home state is auto-disabled so you can't pick it twice. Default is the western US set (OR, WA, NV, AZ, ID, UT, MT, WY, CO, NM, AK, HI).
 - **Hide on page**: checkboxes to hide TCGplayer's price-breakdown panel, recommendations carousel, and footer.
-- **Always Near Mint**: rewrites any product or search URL without `Condition=Near+Mint` to include it before the listings render. Off by default.
+- **Always Near Mint**: rewrites any product or search URL without `Condition=Near+Mint` to include it before the listings render, including when you move between pages inside TCGplayer. Off by default.
 - **Hide tiles with no matching listings**: hides search tiles whose listings don't match your current filters. TCGplayer marks these "Out of Stock", but they're usually a language or condition mismatch rather than true unavailability. Whenever any are present, a banner above the grid shows a count and a toggle button, so hidden tiles are never silent. Off by default.
 
 Settings are stored in `chrome.storage.local`. Changes apply live to any open TCGplayer tab — no reload needed.
@@ -102,7 +102,7 @@ TCGPlus runs entirely in your browser. There is no TCGPlus server, no account, a
 
 - `seller-stores-backend.tcgplayer.com/sm/seller/<key>` for each unique vendor on the page (used for the location badge).
 - `mpgateway.tcgplayer.com/v1/cart/<key>/summary` for the cart subtotal and per-seller breakdown.
-- `mp-search-api.tcgplayer.com/v2/product/<id>/details` for the SKU catalogue of each product (variant + condition), and `mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search` for per-SKU market prices. These power the variant-aware delta chip on product, search-list, and cart pages.
+- `mp-search-api.tcgplayer.com/v2/product/<id>/details` for the SKU catalogue of each product (variant + condition), and `mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search` for per-SKU market prices. These power the variant-aware price-vs-market and Deal chips on product and search-list pages, and the per-item chips and verdict on the cart and checkout pages.
 
 Those three hosts are the extension's only host permissions in the manifest. Only the cart-summary call sends your TCGplayer session cookies (the cart belongs to your session); the vendor, SKU catalogue, and market-price calls are sent without cookies. The page's headline market price is read from the page itself as a fallback when per-SKU pricing isn't available. Settings are stored locally in `chrome.storage.local`. Nothing is sent anywhere else. Full details in the [privacy policy](docs/privacy.md).
 

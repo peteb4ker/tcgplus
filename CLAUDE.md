@@ -222,19 +222,20 @@ The "Deal" chip's logic is one of the few things that's hard to verify by readin
 - Listing price (from the listing's price element).
 - Listing's stated shipping cost.
 - Whether the listing has a "Free Shipping on Orders Over $X" promo.
-- Per-seller cart subtotal from `mpgateway.tcgplayer.com/v1/cart/<key>/summary`.
-- Global free-shipping threshold (currently $5, hard-coded as `FREE_SHIP_THRESHOLD` in `lib.js`).
+- Per-seller cart subtotal from `mpgateway.tcgplayer.com/v1/cart/<key>/summary`. A seller with anything already in the cart adds **no** shipping: TCGplayer charges one flat shipping fee per seller order (help article 201996807), and relabels such listings "Shipping: Included" (#186).
+- Global free-shipping threshold ($5, hard-coded as `FREE_SHIP_THRESHOLD` in `lib.js`). TCGplayer fixes this amount; sellers don't set it. A live probe of ~480 listings found every `.free-shipping-over-min` promo reading "$5". The "$50" variant is TCGplayer Direct's separate `a.free-shipping-direct` offer, not a seller promo.
+- The shipping rule (seller in cart → promo → listed shipping) lives in the pure helper `effectiveDealShipping` in `lib.js`, with unit tests.
 - Per-SKU market price from TCGplayer's pricing endpoints, used as the primary source: `mp-search-api.tcgplayer.com/v2/product/<id>/details` returns the product's SKU list `[{sku, condition, variant, language}, …]`; `mpgateway.tcgplayer.com/v1/pricepoints/marketprice/skus/search` (POST `{skuIds: […]}`) returns `[{skuId, marketPrice, …}]`. The extension matches each listing to its SKU by parsing the condition cell text (e.g. `"Near Mint Reverse Holofoil"` → condition `"Near Mint"`, variant `"Reverse Holofoil"`) and uses the SKU's `marketPrice`. Per-SKU markets are then run through `capConditionMarkets` (lib.js), which caps each condition tier at the best condition above it within the same variant — TCGplayer's thin condition tiers recalculate late and can otherwise price LP above NM (#111). Cached per-productId for the page lifetime in `productSkuPricingCache`.
 - Fallback page market price (`.price-points__upper__price` on product pages, `.product-info__market-price--value` / `.product-card__market-price--value` on search pages), used only when the per-SKU lookup fails. The fallback path gates on condition match (URL `Condition=` param, default `Near Mint`) so a mismatched listing gets the shipping chip only instead of a misleading delta.
 
-When you change `renderDealChipHtml` or `recomputeDealChips` in `content.js`, update the `Price, shipping, and Deal chips` section of `README.md` in the same commit. The README is the user-facing source of truth.
+When you change `effectiveDealShipping` in `lib.js`, or `renderDealChipHtml` or `recomputeDealChips` in `content.js`, update the `Price, shipping, and Deal chips` section of `README.md` in the same commit. The README is the user-facing source of truth.
 
 ## Code layout
 
 - **`lib.js`**: pure helpers (parsing, classification, chip color/text). No DOM access, no fetches, no globals beyond function declarations. Loaded as a content script and `require()`'d from tests. Keep it dependency-free.
 - **`content.js`**: stateful orchestration (fetches, MutationObservers, panel rendering). Wraps an IIFE; relies on `lib.js`'s top-level functions being in scope. **Don't duplicate helpers here.** If you need a new helper, add it to `lib.js` and write a test.
 - **`content.css`**: all styling. Use `tcgplus-` prefixed classes only. Don't style raw TCGplayer classes — that breaks when they reorganize.
-- **`storage.js`**: shared settings layer over `chrome.storage.local` (`STORAGE_KEYS`, load/save/remove helpers, one-time migration from page `localStorage`). Loaded as a content script before `content.js` and as a plain script by the options page.
+- **`storage.js`**: shared settings layer over `chrome.storage.local` (`STORAGE_KEYS`, load/save/remove helpers, one-time migration from page `localStorage`). Loaded as a content script before `content.js` and as a plain script by the options page. Only the content script may call `migrateFromLocalStorageIfNeeded`: the options page's `localStorage` is the extension's own origin, never held the old keys, and running the migration there would set the "migrated" flag and block the real one (#178).
 - **`background.js`**: MV3 service worker. Opens the options page from the toolbar action icon and from the panel gear button (content scripts can't call `chrome.runtime.openOptionsPage`, so they message the worker).
 - **`options/`**: the settings page (`index.html`, `options.js`, `options.css`), referenced from `manifest.json` `options_page`. Settings UI lives here, not in the floating panel; it reads and writes through `storage.js`.
 - **`manifest.json`**: MV3 manifest. `lib.js` and `storage.js` must come before `content.js` in `content_scripts.js`.
@@ -273,7 +274,7 @@ The `.github/workflows/ci.yml` workflow runs:
 
 - **Validate**: manifest schema sanity (including that every manifest-referenced file exists: content scripts, `background.service_worker`, `options_page`, `icons`, `action.default_icon`), `node --check` on every runtime JS file, Prettier, ESLint, `tsc --checkJs`.
 - **Test**: `npm test` (Node `--test`) over `lib.js` pure helpers.
-- **E2E**: `npm run test:e2e` (Playwright) loads the unpacked extension into headless Chromium with mocked TCGplayer routes and asserts on the panel, chips, cart subtotal, filter, and OOS hide behavior.
+- **E2E**: `npm run test:e2e` (Playwright) loads the unpacked extension into headless Chromium with mocked TCGplayer routes and asserts on the panel, chips, Deal math, cart subtotal, cart and checkout verdicts, filters, Always Near Mint, the OOS banner, and the options page.
 
 All three plus CodeQL must pass on every PR.
 

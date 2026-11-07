@@ -29,7 +29,7 @@ Files in `.dev/` are copies, not symlinks — Chrome on macOS silently refuses t
 
 ## Checking selectors against the live site
 
-TCGplayer's DOM changes without warning. `npm run audit:selectors` loads the extension into headless Chromium, visits one live page per page type (product, filtered product, search grid, single-seller search), and reports PASS/FAIL for every selector the extension depends on. Run it when chips or badges go missing, or before a release. It hits the live site, so it stays out of CI.
+TCGplayer's DOM changes without warning. `npm run audit:selectors` loads the extension into headless Chromium, visits one live page per page type (product, filtered product, search grid, single-seller search, seller storefront), and reports PASS/FAIL for every selector the extension depends on. Run it when chips or badges go missing, or before a release. It hits the live site, so it stays out of CI.
 
 ## CI
 

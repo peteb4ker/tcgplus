@@ -13,8 +13,8 @@ TCGPlus is a usability layer on top of TCGplayer.com. It quietly adds the inform
 What you get on every product page:
 
 - A city/state badge under each vendor's rating, color-coded by where they ship from. Pick your home state in settings; nearby states get a yellow badge; everyone else stays neutral.
-- A floating panel summarising how many listings on the current page are from your home state, your nearby states, and elsewhere. Click a tier to filter the list. Click again to clear.
-- A row of chips next to each listing's price showing how far it is from the page's market price (continuous green-to-red gradient), the shipping cost, and a purple "DEAL" badge when the all-in cost still beats market — including TCGplayer's per-seller "Free Shipping on Orders Over $5" promo.
+- A floating panel summarising how many listings on the current page are from your home state, your nearby states, and elsewhere. Click a tier (or Tab to it and press Enter) to filter the list. Click again to clear.
+- A row of chips next to each listing's price showing how far it is from the market price for that exact printing and condition (continuous green-to-red gradient), the shipping cost, and a purple "DEAL" badge when the all-in cost still beats market. The all-in cost counts only the shipping you'd actually pay: none for a seller you already have items from (TCGplayer charges one shipping fee per seller), and none when the seller's "Free Shipping on Orders Over $5" promo applies.
 - The cart's running subtotal next to the cart icon, so you can see what you're spending without opening the cart.
 
 On your cart and at checkout:
@@ -32,8 +32,8 @@ In settings:
 Privacy and trust:
 
 - TCGPlus runs entirely in your browser. There is no TCGPlus server, no account, and no analytics. Settings live in `chrome.storage.local` on your device.
-- The only network requests it makes are to TCGplayer's own endpoints (vendor info, your cart subtotal, and per-SKU market pricing), using the session you're already logged into.
-- Open source. MIT-licensed. Source, issues, and changelog at https://github.com/peteb4ker/tcgplus
+- The only network requests it makes are to TCGplayer's own endpoints (vendor info, your cart subtotal, and per-SKU market pricing). Only the cart request uses your TCGplayer session; the others are sent without cookies.
+- Open source. MIT-licensed. Source, issues, and release notes at https://github.com/peteb4ker/tcgplus
 
 TCGPlus is an independent tool. It is not affiliated with, endorsed by, or certified by TCGplayer, Inc. "TCGplayer" and the TCGplayer logo are trademarks of TCGplayer, Inc. TCGPlus only adds visual overlays and reads what's already on the page. It doesn't scrape, doesn't automate clicks or purchases, and doesn't change how TCGplayer's site behaves beyond the toggles you control in settings.
 
