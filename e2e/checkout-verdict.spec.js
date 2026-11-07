@@ -188,6 +188,68 @@ test.describe('Checkout all-in vs market verdict (#113)', () => {
     await expect(verdict.locator('.tcgplus-price-chip')).toHaveText('-$5.13 (-13.5%)');
   });
 
+  test('renders in the real Order Summary card, whose Est. Tax label carries a tooltip (#122)', async () => {
+    ({ ctx } = await launchWithExtension());
+    page = await ctx.newPage();
+    // Replayed from the live checkout DOM (data-v-* and SVG paths
+    // stripped). The Est. Tax label shares a wrapper with a hidden
+    // tooltip, so the row's raw text runs past the matcher's 40-char
+    // row cap, and the label's next sibling is the tooltip rather than
+    // the amount. No whitespace between the label and value spans.
+    const realCard =
+      '<div class="checkout-card"><header><h2 class="title">Order Summary </h2>' +
+      '<span data-testid="optional-header-text" class="optional-header-text">$35.00</span></header>' +
+      '<p class="panel-content"><span>Packages</span><span data-testid="txtPackageCount">1</span></p>' +
+      '<p class="panel-content"><span>Items</span><span data-testid="txtNumberOfItems">5</span></p>' +
+      '<p class="panel-content"><span>Items Total</span><span data-testid="txtItemsSubtotal" class="subtotal-value">$29.81</span></p>' +
+      '<p class="panel-content"><span>Shipping</span><span data-testid="txtEstimatedShipping">$1.99</span></p>' +
+      '<p class="panel-content"><span><span>Est. Tax</span><div class="is-positioned-top is-width-restricted tcg-tooltip">' +
+      '<div aria-describedby="tcg-tooltip-1726" class="tcg-tooltip__toggle"><svg aria-hidden="true" viewBox="0 0 512 512"><path d=""></path></svg>' +
+      '<div class="is-disabled tcg-base-overlay"><div class="tcg-tooltip__content" id="tcg-tooltip-1726" role="tooltip">' +
+      '<span>Tax will be finalized at order submission.</span></div></div></div></div></span>' +
+      '<span data-testid="txtEstimatedTax">$3.20</span></p>' +
+      '<section class="summary-addr-and-pmts"><section class="summary-addr"><header><h4 class="title"> Shipping Address </h4></header>' +
+      '<p class="summary-addr-line1">1 TEST ST, OAKLAND, CA</p></section></section>' +
+      '<section class="place-order"><button class="place-order-btn" data-testid="place-order-btn"><span>Place Order</span></button></section></div>';
+    // Served without an Order Summary; the card is injected afterwards,
+    // like Vue rendering it late. It goes through an XML parser because
+    // the live card nests <div> inside <p>, which Vue can build with DOM
+    // calls but the HTML parser would split, losing the real shape.
+    const html = CHECKOUT_HTML.replace(/<aside class="order-summary">[\s\S]*?<\/aside>/, '');
+    await mockTCGplayer(page, { productSkus: SKUS, skuMarketPrices: SKU_PRICES, cart: null });
+    await page.route('https://www.tcgplayer.com/checkout**', (route) =>
+      route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html })
+    );
+    await page.goto('https://www.tcgplayer.com/checkout');
+    await page.waitForFunction(() => document.documentElement.dataset.tcgplusReady === '1');
+    await page.evaluate((markup) => {
+      const doc = new DOMParser().parseFromString(
+        `<div xmlns="http://www.w3.org/1999/xhtml">${markup}</div>`,
+        'application/xhtml+xml'
+      );
+      const card = doc.documentElement.firstElementChild;
+      if (!card) throw new Error('fixture card failed to parse');
+      document.querySelector('main')?.appendChild(document.importNode(card, true));
+    }, realCard);
+    // The fixture really has the live nesting: Est. Tax's tooltip <div>
+    // inside the row's <p>.
+    expect(await page.locator('p.panel-content [role="tooltip"]').count()).toBe(1);
+
+    const verdict = page.locator('.checkout-card .tcgplus-checkout-verdict');
+    await expect(verdict).toBeVisible();
+    await expect(verdict).toContainText('+ Est. tax$3.20');
+    await expect(verdict).toContainText('All-in vs market');
+    await expect(verdict).not.toContainText('before tax');
+    await expect(verdict.locator('.tcgplus-price-chip')).toHaveText('-$3.14 (-8.2%)');
+    // Mounted directly under the Est. Tax row, not at the bottom of the
+    // card below Place Order.
+    const prevHasTax = await verdict.evaluate(
+      (el) =>
+        !!(el.previousElementSibling && el.previousElementSibling.querySelector('[data-testid="txtEstimatedTax"]'))
+    );
+    expect(prevHasTax).toBe(true);
+  });
+
   test('does not render when the page has no summary box at all', async () => {
     ({ ctx } = await launchWithExtension());
     page = await ctx.newPage();
