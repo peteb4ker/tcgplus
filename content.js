@@ -832,7 +832,9 @@
     if (activeFilter) root.classList.add(`tcgplus-filter-${activeFilter}`);
     if (panel) {
       panel.querySelectorAll('.tcgplus-panel-row').forEach((r) => {
-        r.classList.toggle('tcgplus-panel-row-active', r.dataset.tier === activeFilter);
+        const pressed = r.dataset.tier === activeFilter;
+        r.classList.toggle('tcgplus-panel-row-active', pressed);
+        r.setAttribute('aria-pressed', String(pressed));
       });
     }
   }
@@ -967,10 +969,16 @@
       .map((tier) => {
         const count = counts[tier];
         const isActive = activeFilter === tier;
-        const disabled = count === 0 && !isActive ? ' tcgplus-panel-row-disabled' : '';
+        const isDisabled = count === 0 && !isActive;
+        const disabled = isDisabled ? ' tcgplus-panel-row-disabled' : '';
         const active = isActive ? ' tcgplus-panel-row-active' : '';
         const label = tierLabel(tier, homeState, STATE_NAMES);
-        return `<div class="tcgplus-panel-row tcgplus-row-${tier}${disabled}${active}" data-tier="${tier}">${label}: <b>${count}</b></div>`;
+        // Real <button>s so the filter is reachable by Tab and toggles on
+        // Enter/Space. Attributes are written exactly as innerHTML
+        // serialises them (boolean `disabled` → `disabled=""`) so the
+        // compare-before-set below stays stable across scans.
+        const disabledAttr = isDisabled ? ' disabled=""' : '';
+        return `<button type="button" class="tcgplus-panel-row tcgplus-row-${tier}${disabled}${active}" data-tier="${tier}" aria-pressed="${isActive}"${disabledAttr}>${label}: <b>${count}</b></button>`;
       })
       .join('');
     const gear = `<button type="button" class="tcgplus-settings-toggle" aria-label="Open TCGPlus settings" title="Open TCGPlus settings">⚙</button>`;

@@ -30,7 +30,7 @@ When you've filtered to a single seller, the location moves into the "You are sh
 
 ### Click-to-filter panel
 
-A floating panel summarizes the page by tier (Home / Nearby / Other US). Click a tier to filter the listings to just that group, click again to clear. Counts reflect only the active page. The chosen filter sticks across reloads.
+A floating panel summarizes the page by tier (Home / Nearby / Other US). Click a tier to filter the listings to just that group, click again to clear. The tiers are buttons, so you can also Tab to one and press Enter or Space. Counts reflect only the active page. The chosen filter sticks across reloads.
 
 ### Price, shipping, and Deal chips
 
