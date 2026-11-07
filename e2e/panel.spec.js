@@ -98,6 +98,86 @@ test.describe('Floating panel and chips', () => {
     await expect(page.locator('.listing-item[data-tcgplus-tier="other"]')).toBeHidden();
   });
 
+  test('tier rows are buttons exposing the filter state via aria-pressed', async () => {
+    await page.goto('https://www.tcgplayer.com/product/1/test');
+    await expect(page.locator('.listing-item[data-tcgplus-tier]')).toHaveCount(3);
+
+    const rows = page.locator('.tcgplus-panel .tcgplus-panel-row');
+    await expect(rows).toHaveCount(3);
+    for (const tier of ['home', 'nearby', 'other']) {
+      const row = page.locator(`.tcgplus-panel-row[data-tier="${tier}"]`);
+      expect(await row.evaluate((el) => el.tagName)).toBe('BUTTON');
+      await expect(row).toHaveAttribute('type', 'button');
+      await expect(row).toHaveAttribute('aria-pressed', 'false');
+      await expect(row).toBeEnabled();
+    }
+  });
+
+  test('empty tier rows are disabled buttons', async () => {
+    await mockTCGplayer(page, {
+      sellers: {
+        aaaaaaaa: { addressCity: 'Atascadero', addressTerritory: 'CA', addressCountryCode: 'US' },
+        bbbbbbbb: { addressCity: 'Fresno', addressTerritory: 'CA', addressCountryCode: 'US' },
+        cccccccc: { addressCity: 'Oakland', addressTerritory: 'CA', addressCountryCode: 'US' },
+      },
+    });
+    await page.goto('https://www.tcgplayer.com/product/1/test');
+    await expect(page.locator('.tcgplus-row-home b')).toHaveText('3');
+
+    await expect(page.locator('.tcgplus-panel-row[data-tier="home"]')).toBeEnabled();
+    for (const tier of ['nearby', 'other']) {
+      const row = page.locator(`.tcgplus-panel-row[data-tier="${tier}"]`);
+      await expect(row).toBeDisabled();
+      await expect(row).toHaveClass(/tcgplus-panel-row-disabled/);
+    }
+
+    // The `disabled` boolean attribute must be generated in its serialised
+    // form, or every scan's compare-before-set would rewrite the panel.
+    const nearby = page.locator('.tcgplus-panel-row[data-tier="nearby"]');
+    await nearby.evaluate((el) => {
+      /** @type {any} */ (el).__tcgplusTestMarker = true;
+    });
+    await page.evaluate(() => document.body.appendChild(document.createElement('div')));
+    await page.waitForTimeout(600); // scan debounce is 200ms; generous margin
+    expect(await nearby.evaluate((el) => /** @type {any} */ (el).__tcgplusTestMarker === true)).toBe(true);
+  });
+
+  test('Enter and Space on a focused tier row toggle the filter', async () => {
+    await page.goto('https://www.tcgplayer.com/product/1/test');
+    await expect(page.locator('.listing-item[data-tcgplus-chips="1"]')).toHaveCount(3);
+
+    const home = page.locator('.tcgplus-panel-row[data-tier="home"]');
+    await home.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('html')).toHaveClass(/tcgplus-filter-home/);
+    await expect(home).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.listing-item[data-tcgplus-tier="nearby"]')).toBeHidden();
+
+    // The generated row HTML must round-trip through innerHTML so the
+    // next scan's compare-before-set doesn't rebuild the panel (which
+    // would also drop keyboard focus). Tag the row and force a scan.
+    await home.evaluate((el) => {
+      /** @type {any} */ (el).__tcgplusTestMarker = true;
+    });
+    await page.evaluate(() => document.body.appendChild(document.createElement('div')));
+    await page.waitForTimeout(600); // scan debounce is 200ms; generous margin
+    expect(await home.evaluate((el) => /** @type {any} */ (el).__tcgplusTestMarker === true)).toBe(true);
+    await expect(home).toBeFocused();
+
+    await page.keyboard.press('Space');
+    await expect(page.locator('html')).not.toHaveClass(/tcgplus-filter-home/);
+    await expect(home).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.locator('.listing-item[data-tcgplus-tier="nearby"]')).toBeVisible();
+
+    // Space works to turn a filter on too, on a different row.
+    const nearby = page.locator('.tcgplus-panel-row[data-tier="nearby"]');
+    await nearby.focus();
+    await page.keyboard.press('Space');
+    await expect(page.locator('html')).toHaveClass(/tcgplus-filter-nearby/);
+    await expect(nearby).toHaveAttribute('aria-pressed', 'true');
+    await expect(home).toHaveAttribute('aria-pressed', 'false');
+  });
+
   test('OOS hide rule hides search-result tiles carrying mp-oos-badge', async () => {
     const html = await fs.readFile(require('node:path').join(__dirname, 'fixtures', 'product-page.html'), 'utf8');
     const withOOS =
