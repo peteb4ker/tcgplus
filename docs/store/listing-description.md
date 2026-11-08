@@ -1,13 +1,20 @@
 # Chrome Web Store listing copy
 
-This file is the source for the TCGPlus Chrome Web Store listing. Paste each section into the matching field in the developer dashboard.
+This file is the source for the TCGPlus Chrome Web Store listing. The dashboard's description fields take plain text, so each field below is in a code block: use its copy button (or copy from the raw file) and paste into the matching field. Copying the rendered Markdown drops the `-` list markers.
+
+Edit the listing here, not in the dashboard, so the two never drift. Don't list individual games or other trademarked names; the store rejects that as keyword spam (violation "Yellow Argon").
 
 ## Short description (132 chars max)
 
+This comes from `description` in `manifest.json` (keep `package.json` in sync); it reaches the store with each upload.
+
+```text
 Find real deals on TCGplayer: price vs market, the shipping you'd pay, and seller location on every listing. Free and open source.
+```
 
 ## Full description
 
+```text
 TCGPlus helps you buy cards on TCGplayer for less. It adds the information you need to compare listings to the TCGplayer pages you already use, so you can find the best listing without opening each one or doing the math yourself.
 
 Find the best listing:
@@ -37,6 +44,7 @@ Privacy:
 - It's open source under the MIT license. Source, issues and release notes: https://github.com/peteb4ker/tcgplus
 
 TCGPlus is an independent tool. It isn't affiliated with, endorsed by or certified by TCGplayer, Inc. "TCGplayer" and the TCGplayer logo are trademarks of TCGplayer, Inc. TCGPlus only adds information to the page and reads what's already there. It doesn't scrape, doesn't click or buy anything for you, and doesn't change how TCGplayer works beyond the settings you control.
+```
 
 ## Category
 
