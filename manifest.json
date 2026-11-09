@@ -3,7 +3,7 @@
   "minimum_chrome_version": "105",
   "name": "TCGPlus – TCGplayer Deal Finder & Seller Location",
   "short_name": "TCGPlus",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Find real deals on TCGplayer: price vs market, the shipping you'd pay, and seller location on every listing. Free and open source.",
   "homepage_url": "https://github.com/peteb4ker/tcgplus",
   "permissions": ["storage"],
