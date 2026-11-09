@@ -71,6 +71,38 @@ test.describe('Always Near Mint', () => {
     await page.waitForURL(/\/product\/2\?Condition=Near\+Mint$/, { timeout: 5000 });
   });
 
+  test('lets the site drop Condition on the same page without reloading (#196)', async () => {
+    ({ ctx } = await launchWithExtension());
+    await setStorage(ctx, { 'tcgplus.forceNearMint': true });
+    const page = await ctx.newPage();
+    await mockTCGplayer(page);
+    await page.route('https://www.tcgplayer.com/search/**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: '<!doctype html><html><body><main class="search-results"></main></body></html>',
+      })
+    );
+    let loads = 0;
+    page.on('load', () => loads++);
+    await page.goto('https://www.tcgplayer.com/search/all/product?q=asdfasdfas&seller=aaaaaaaa&Condition=Near+Mint');
+    await waitReady(page);
+
+    // When nothing matches, TCGplayer's own script strips the Condition
+    // (and seller) facets from the URL with replaceState and re-renders
+    // the empty results. Rewriting it back reloads into the same state,
+    // forever.
+    await page.evaluate(() => {
+      history.replaceState(history.state, '', '/search/all/product?q=asdfasdfas');
+      const p = document.createElement('p');
+      p.textContent = 'No results';
+      document.body.appendChild(p);
+    });
+    await page.waitForTimeout(800);
+    expect(page.url()).toBe('https://www.tcgplayer.com/search/all/product?q=asdfasdfas');
+    expect(loads).toBe(1);
+  });
+
   test('does nothing on SPA route changes when the setting is off', async () => {
     ({ ctx } = await launchWithExtension());
     const page = await ctx.newPage();

@@ -1305,9 +1305,13 @@
     backfillPriceChips();
     if (!document.querySelector('.listing-item[data-tcgplus-price-missing]')) clearDegraded('listing-price');
     // SPA route changes don't reload the content script, so re-apply the
-    // Always Near Mint rewrite whenever the URL has moved since last scan.
-    if (location.href !== lastScanHref) {
-      lastScanHref = location.href;
+    // Always Near Mint rewrite when the path has moved since the last scan
+    // (search → product, product → product). A query-only change is
+    // TCGplayer or the user editing filters on the same page: TCGplayer
+    // strips Condition itself when nothing matches, and rewriting it back
+    // reloads into the same state forever (#196).
+    if (location.pathname !== lastScanPath) {
+      lastScanPath = location.pathname;
       enforceNearMint();
     }
     watchCartCount();
@@ -1320,7 +1324,7 @@
     renderCheckoutVerdict();
   }
 
-  let lastScanHref = location.href;
+  let lastScanPath = location.pathname;
   let scanTimer = null;
   const observer = new MutationObserver((mutations) => {
     if (scanTimer) return;

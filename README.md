@@ -101,7 +101,7 @@ To open settings, click the gear on the floating panel, click the TCGPlus icon i
 - **Home state:** where you live, so nearby sellers stand out. Default: California.
 - **Nearby states:** other states whose sellers you'd consider close. Default: the western US (OR, WA, NV, AZ, ID, UT, MT, WY, CO, NM, AK, HI). Your home state can't also be a nearby state.
 - **Hide on page:** remove parts of TCGplayer's product pages you don't use: the price breakdown panel, the recommendations carousel and the page footer.
-- **Always Near Mint:** skip setting the condition filter on every search. TCGPlus adds `Condition=Near+Mint` to any product or search page address that lacks it, including when you move between pages inside TCGplayer. Off by default.
+- **Always Near Mint:** skip setting the condition filter on every search. TCGPlus adds `Condition=Near+Mint` to any product or search page address that lacks it, including when you open another page inside TCGplayer. Filter changes on the same page are left alone, so you can still pick another condition, and a search with no Near Mint results doesn't reload. Off by default.
 - **Hide tiles with no matching listings:** clean up search results. TCGplayer marks these tiles "Out of Stock", but usually the card is available in another language or condition that your filters exclude. When any are on the page, a banner above the results shows how many and lets you show or hide them. Off by default.
 
 Changes apply immediately to open TCGplayer tabs. Settings are stored on your computer in `chrome.storage.local`.
