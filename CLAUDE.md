@@ -62,7 +62,7 @@ If the change affects what a user sees, does, or notices, update the docs in the
 
 - `README.md`, when user-visible behaviour changes: a new feature, a changed setting, a new install or setup step.
 - README screenshots, when the panel, chips, or settings page look different. Retake them with `mcp__chrome-devtools__take_screenshot` and replace the files in `docs/images/`. No stale screenshots.
-- `docs/store/listing-description.md`, when the Web Store listing copy needs to match.
+- `docs/store/listing-description.md`, when the Web Store listing copy needs to match. It is the only source for the listing text: edit it there and paste into the dashboard, never the other way round. Never list individual games or other trademarked names; the store rejected v0.8.0 for exactly that (keyword spam, "Yellow Argon").
 - `CLAUDE.md`, when the development workflow changes (CI gates, hooks, scripts, conventions).
 - The README's Deal-math description, in the same commit as any Deal-math change (→ "Deal math must stay in sync between code and README").
 
