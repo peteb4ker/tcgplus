@@ -43,6 +43,6 @@ Every pull request must pass:
 
 ## Releases
 
-Releases are tag-driven, with manual version bumps. `npm run release -- X.Y.Z` bumps the version in `manifest.json` and `package.json` together. After the release PR merges, pushing a `vX.Y.Z` tag builds the zip, creates a GitHub Release with generated notes, and publishes to the Chrome Web Store.
+Releases are tag-driven, with manual version bumps. `npm run release -- X.Y.Z` bumps the version in `manifest.json`, `package.json` and `package-lock.json` together. After the release PR merges, pushing a `vX.Y.Z` tag builds the zip, creates a GitHub Release with generated notes, and publishes to the Chrome Web Store.
 
 The agent workflow (branching, issues, keeping the Deal math in sync) is in [CLAUDE.md](../CLAUDE.md).

@@ -132,7 +132,7 @@ Releases are tag-driven, with manual version bumps. There is no release-please a
 To ship:
 
 1. Pick the next semver from what has landed since the last tag. Roughly: `feat:` → minor, `fix:`/`chore:`/etc → patch, `feat!:` or `BREAKING CHANGE:` → major. To see what's queued, run `git log $(git describe --tags --abbrev=0)..HEAD --oneline`.
-2. On a `chore/release-vX.Y.Z` branch, run `npm run release -- X.Y.Z`. The script bumps `manifest.json` and `package.json` together. Open a PR titled `chore: release vX.Y.Z` and merge it.
+2. On a `chore/release-vX.Y.Z` branch, run `npm run release -- X.Y.Z`. The script bumps the version in `manifest.json`, `package.json` and `package-lock.json` together, changing only those lines, so the diff passes `npm run check` as is. Open a PR titled `chore: release vX.Y.Z` and merge it.
 3. Once it's on `main`, tag and push:
    ```sh
    git tag vX.Y.Z
